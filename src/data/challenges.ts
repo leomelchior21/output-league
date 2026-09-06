@@ -28,6 +28,8 @@ export function makeRounds(random = Math.random): Challenge[] {
     c.choices = c.goals === 4 ? [word, `"${word}"`, 'print', 'None'] : [word, `"${word}"`, word.toLowerCase(), word.endsWith('!') ? word.slice(0, -1) : 'print', 'None', 'ERROR'];
   };
   numberRound(0, integer(2, 9)); textRound(1, pick(['HELLO', 'READY', 'PLAY', 'HI']));
+  const secondTargetSlot = 1 + Math.min(2, Math.floor(random() * 3));
+  [rounds[1].choices[0], rounds[1].choices[secondTargetSlot]] = [rounds[1].choices[secondTargetSlot], rounds[1].choices[0]];
   numberRound(2, integer(12, 48)); textRound(3, pick(['PYTHON', 'ROVER', 'TURBO', 'NEON']));
   numberRound(4, integer(21, 89)); textRound(5, pick(['GO!', 'YES!', 'SCORE!', 'WOW!']));
   numberRound(6, integer(2, 9)); textRound(7, pick(['CODE', 'DRIVE', 'LOOP', 'BOOST']));
@@ -35,9 +37,15 @@ export function makeRounds(random = Math.random): Challenge[] {
   const word = pick(['GO', 'WIN', 'PLAY', 'NICE']), n = String(integer(2, 9));
   rounds[9].code = [`print("${word}")`, `print(${n})`]; rounds[9].outputs = [word, n];
   rounds[9].choices = [word, n, `"${word}"`, `"${n}"`, word + n, 'ERROR'];
-  rounds[6].lesson = 'A portal rover borrows the ball briefly. It always lets go. Keep your output in mind.';
-  rounds[8].obstacles = [...rounds[8].obstacles, 'pothole'];
-  rounds[8].lesson += ' Watch the amber ring: the repair pit gently pops you back out.';
+  rounds[4].obstacles = ['moving-wall', 'wall', 'bumper', 'slow-zone'];
+  rounds[5].obstacles = ['bumper', 'rotating-arm', 'disappearing-wall', 'speed-pad', 'pothole'];
+  rounds[6].obstacles = ['moving-wall', 'bumper', 'rotating-arm', 'slow-zone', 'pothole', 'disappearing-wall'];
+  rounds[6].lesson = 'A portal rover borrows the ball briefly, then disappears. Keep your eyes on your output.';
+  rounds[7].obstacles = ['orbiting-bumper', 'rotating-arm', 'disappearing-wall', 'bumper', 'moving-wall', 'pothole'];
+  rounds[8].obstacles = ['bumper', 'disappearing-wall', 'moving-wall', 'rotating-arm', 'pothole', 'slow-zone', 'speed-pad'];
+  rounds[8].lesson += ' Watch the amber rings: repair pits gently pop you back out.';
+  rounds[9].obstacles = ['wall', 'moving-wall', 'bumper', 'disappearing-wall', 'rotating-arm', 'pothole', 'orbiting-bumper', 'bumper'];
+  for (const round of rounds.slice(4)) round.bot = true;
   for (let r = 2; r < rounds.length; r++) {
     for (let i = rounds[r].choices.length - 1; i > 0; i--) {
       const j = Math.floor(random() * (i + 1));

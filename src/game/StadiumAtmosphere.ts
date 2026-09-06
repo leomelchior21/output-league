@@ -5,7 +5,7 @@ import type { FollowState } from './followCamera';
 export class StadiumAtmosphere {
   readonly view: Phaser.GameObjects.Graphics;
   cheer = 0;
-  constructor(scene: Phaser.Scene, readonly style: PitchStyle) { this.view = scene.add.graphics().setDepth(14); }
+  constructor(scene: Phaser.Scene, public style: PitchStyle) { this.view = scene.add.graphics().setDepth(14); }
   update(dt: number, time: number, camera: FollowState, reduced: boolean) {
     const g = this.view; g.clear(); this.cheer = Math.max(0, this.cheer - dt);
     for (let side = 0; side < 8; side++) {

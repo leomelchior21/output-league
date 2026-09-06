@@ -16,6 +16,8 @@ interface Spark { x: number; y: number; vx: number; vy: number; life: number; co
 interface Trail { x: number; y: number; facing: number; age: number; boost: boolean; skid: number }
 interface Ripple { x: number; y: number; age: number; color: number; size: number }
 const ORBIT_RADIUS = 475;
+const ROUND_ZOOM_TIME = 1.45;
+const COUNTDOWN_TIME = 3;
 
 export class ArenaScene extends Phaser.Scene {
   readonly match = new Match();
@@ -38,11 +40,16 @@ export class ArenaScene extends Phaser.Scene {
   private botPhase = 'quiet';
   private botCarrying = false;
   private botClock = 0;
+  private botPortal = { x: 0, y: 0 };
+  private botBallProtected = false;
+  private botPickupBlockedUntil = 0;
   private pitCooldown = 0;
   private world!: Phaser.GameObjects.Container;
+  private pitch!: Phaser.GameObjects.Image;
   private car!: CarArt;
   private botView!: CarArt;
   private ballArt!: RollingBall;
+  private countdownText!: Phaser.GameObjects.Text;
   private guidance!: ArenaGuidance;
   private groundFx!: Phaser.GameObjects.Graphics;
   private airFx!: Phaser.GameObjects.Graphics;
@@ -59,6 +66,10 @@ export class ArenaScene extends Phaser.Scene {
   private trailElapsed = 0;
   private transition = 0;
   private pendingNext = false;
+  private roundZoom = 0;
+  private countdown = 0;
+  private portal = { x: 0, y: 0, age: 2, duration: 1.2 };
+  private activePitchStyle: PitchStyle = 'alpine';
   private lastKick = -100;
   private lastAttempt = -100;
   private lastBump = -100;
@@ -79,8 +90,10 @@ export class ArenaScene extends Phaser.Scene {
     this.car = makeCarArt(this, 0x1baef4);
     this.botView = makeCarArt(this, 0xb782ed); this.botView.view.setVisible(false);
     this.ballArt = new RollingBall(this, this.ball.radius);
+    this.countdownText = this.add.text(0, -36, '', { fontFamily: 'Barlow Condensed, Arial', fontSize: '104px', fontStyle: '900', color: '#fff6c6' }).setOrigin(.5).setDepth(30).setVisible(false);
     this.atmosphere = new StadiumAtmosphere(this, this.pitchStyle);
-    this.world.add([makePitch(this, this.pitchStyle), this.groundFx, this.obstacleGraphics, this.car.view, this.botView.view, this.ballArt.view, this.airFx, this.atmosphere.view]);
+    this.pitch = makePitch(this, this.activePitchStyle);
+    this.world.add([this.pitch, this.groundFx, this.obstacleGraphics, this.car.view, this.botView.view, this.ballArt.view, this.countdownText, this.airFx, this.atmosphere.view]);
     this.applyGarage();
     this.guidance = new ArenaGuidance(this);
     const hudCamera = this.cameras.add(0, 0, 1200, 800, false, 'guidance');
@@ -120,16 +133,43 @@ export class ArenaScene extends Phaser.Scene {
     this.bot = challenge.bot ? { x: 300 + Math.random() * 60, y: -250, vx: 0, vy: 0, radius: 25 } : undefined;
     this.botClock = 0; this.botPhase = 'quiet'; this.botCarrying = false; this.pitCooldown = 0;
     this.botView.view.setVisible(false);
-    this.moveGoals(); this.resetPositions(); this.drawObstacles();
+    this.useRoundPitch();
+    this.moveGoals(); this.resetPositions(true, this.introDone); this.drawObstacles();
     this.world.sort('depth');
   }
 
-  private resetPositions() {
+  private useRoundPitch() {
+    const next = this.match.round === 0 ? 'alpine' : this.pitchStyle;
+    this.atmosphere.style = next;
+    if (next === this.activePitchStyle && this.pitch) return;
+    this.activePitchStyle = next;
+    this.pitch.destroy();
+    this.pitch = makePitch(this, this.activePitchStyle);
+    this.world.addAt(this.pitch, 0);
+  }
+
+  private centralSpawn() {
+    const apothem = 112;
+    for (let attempt = 0; attempt < 40; attempt++) {
+      const x = (Math.random() * 2 - 1) * apothem, y = (Math.random() * 2 - 1) * apothem;
+      if (SIDES.every(side => x * side.nx + y * side.ny <= apothem) && Math.hypot(x - this.player.x, y - this.player.y) > 88) return { x, y };
+    }
+    return { x: 0, y: 35 };
+  }
+
+  private resetPositions(countdown = false, zoom = false) {
     this.botCarrying = false; this.botClock = 0; this.botPhase = 'quiet'; this.botView.view.setVisible(false);
-    Object.assign(this.player, { x: 0, y: 115, vx: 0, vy: 0 }); Object.assign(this.ball, { x: 0, y: 35, vx: 0, vy: 0 });
+    this.botBallProtected = false;
+    this.botPickupBlockedUntil = 0;
+    Object.assign(this.player, { x: 0, y: 190, vx: 0, vy: 0 });
+    const spawn = this.centralSpawn(); Object.assign(this.ball, { x: spawn.x, y: spawn.y, vx: 0, vy: 0 });
     this.facing = -Math.PI / 2; this.lastKick = -100; this.goalTouch = false; this.ballHop = 0;
     this.trails = []; this.ballTrail = []; this.ballTravel = { x: 0, y: 0 }; this.steering = 0;
-    this.cameraState = { ...followTarget(this.player, this.ball, this.facing), zoom: this.controls.reducedMotion ? 1.08 : 1.10 };
+    this.portal = { x: spawn.x, y: spawn.y, age: 0, duration: this.controls.reducedMotion ? .25 : 1.2 };
+    this.roundZoom = zoom && !this.controls.reducedMotion ? ROUND_ZOOM_TIME : 0;
+    this.countdown = countdown ? COUNTDOWN_TIME : 0;
+    this.controls.kickDisabled = this.match.challenge.orbit || this.match.kicksRemaining <= 0 || this.countdown > 0 || this.roundZoom > 0;
+    this.cameraState = this.roundZoom > 0 ? { x: 0, y: 0, zoom: .32 } : { ...followTarget(this.player, this.ball, this.facing), zoom: this.controls.reducedMotion ? 1.08 : 1.10 };
     this.updateCamera(0); this.renderBodies(0); this.renderEffects(0);
   }
 
@@ -149,9 +189,13 @@ export class ArenaScene extends Phaser.Scene {
   private kick() {
     if (this.elapsed - this.lastAttempt < .32) return;
     this.lastAttempt = this.elapsed;
+    if (this.match.challenge.orbit) { this.options.onFeedback({ text: 'NO KICK IN ORBIT MODE', kind: 'info', detail: 'Use the car body and timing to guide the ball.' }); return; }
+    if (this.match.kicksRemaining <= 0) { this.options.onFeedback({ text: 'NO KICKS LEFT', kind: 'info', detail: 'Use your car to push the ball into the right output.' }); return; }
     if (Math.hypot(this.player.x - this.ball.x, this.player.y - this.ball.y) > 94) { this.options.onFeedback({ text: 'GET CLOSER', kind: 'info', detail: 'Kick when the ball is beside your car.' }); return; }
     this.match.kickCount++;
+    this.controls.kickDisabled = this.match.challenge.orbit || this.match.kicksRemaining <= 0;
     this.botCarrying = false;
+    this.botBallProtected = false;
     this.ball.vx = Math.cos(this.facing) * 940 + this.player.vx * .18;
     this.ball.vy = Math.sin(this.facing) * 940 + this.player.vy * .18;
     this.lastKick = this.elapsed; this.ballHop = 1;
@@ -160,7 +204,7 @@ export class ArenaScene extends Phaser.Scene {
   }
 
   private scoreGoal(goal: Goal) {
-    if (this.goalTouch || this.transition > 0 || this.match.levelComplete) return;
+    if (this.goalTouch || this.transition > 0 || this.match.levelComplete || this.botCarrying || this.botBallProtected) return;
     this.goalTouch = true;
     const code = [...this.match.challenge.code];
     const outcome = this.match.goal(goal.output, this.elapsed - this.lastKick < 3.2);
@@ -201,22 +245,48 @@ export class ArenaScene extends Phaser.Scene {
       this.atmosphere.update(dt, this.introElapsed, this.cameraState, this.controls.reducedMotion);
       if (this.introElapsed >= duration || this.controls.skipIntro) {
         this.introDone = true; this.controls.kickRequested = false;
-        this.resetPositions(); this.guidance.root.setVisible(true); this.options.onIntroComplete();
+        this.roundZoom = 0; this.countdown = COUNTDOWN_TIME; this.portal.age = 0;
+        if (this.controls.reducedMotion) { this.cameraState = { ...followTarget(this.player, this.ball, this.facing), zoom: 1.08 }; this.updateCamera(0); }
+        this.controls.kickDisabled = true; this.guidance.root.setVisible(true); this.options.onIntroComplete();
       }
       return;
     }
     this.elapsed += dt;
+    this.portal.age += wallDt;
+    if (this.roundZoom > 0) {
+      this.roundZoom = Math.max(0, this.roundZoom - wallDt);
+      const t = Phaser.Math.Clamp(1 - this.roundZoom / ROUND_ZOOM_TIME, 0, 1), ease = t * t * (3 - 2 * t);
+      const target = followTarget(this.player, this.ball, this.facing);
+      this.cameraState = { x: target.x * ease, y: target.y * ease, zoom: .32 + .78 * ease };
+      this.controls.kickRequested = false; this.controls.kickDisabled = true; this.guidance.root.setVisible(false);
+      this.updateCamera(0); this.drawObstacles(); this.renderBodies(dt); this.renderEffects(dt);
+      this.atmosphere.update(wallDt, this.elapsed, this.cameraState, this.controls.reducedMotion);
+      return;
+    }
+    if (this.countdown > 0) {
+      this.countdown = Math.max(0, this.countdown - wallDt);
+      this.controls.kickRequested = false; this.controls.kickDisabled = true; this.guidance.root.setVisible(false);
+      if (this.countdown <= 0) {
+        this.guidance.root.setVisible(true);
+        this.controls.kickDisabled = this.match.challenge.orbit || this.match.kicksRemaining <= 0;
+        this.options.onSnapshot(this.match.snapshot());
+      }
+      this.updateCamera(dt); this.drawObstacles(); this.renderBodies(dt); this.renderEffects(dt);
+      this.atmosphere.update(wallDt, this.elapsed, this.cameraState, this.controls.reducedMotion);
+      return;
+    }
+    this.controls.kickDisabled = this.match.challenge.orbit || this.match.kicksRemaining <= 0;
     if (this.controls.kickRequested) { this.controls.kickRequested = false; if (!this.match.levelComplete && this.transition <= 0) this.kick(); }
     this.moveGoals();
     if (this.transition > 0) {
       this.transition -= wallDt;
       if (this.transition <= 0 && !this.match.levelComplete) {
         if (this.pendingNext) { this.match.nextRound(); this.configureRound(); this.options.onFeedback({ text: this.match.challenge.category, kind: 'info', detail: this.match.challenge.lesson }); }
-        else this.resetPositions();
+        else this.resetPositions(false, false);
         this.options.onSnapshot(this.match.snapshot());
       }
     } else if (!this.match.levelComplete) {
-      this.match.tick(wallDt); this.botClock += wallDt; this.accumulator += dt;
+      this.match.tick(wallDt); this.botClock += wallDt * (1 + Math.max(0, this.match.round - 4) * .08); this.accumulator += dt;
       while (this.accumulator >= 1 / 120) { this.step(1 / 120); this.accumulator -= 1 / 120; }
     }
     this.updateCamera(dt); this.drawObstacles(); this.renderBodies(dt); this.renderEffects(dt);
@@ -249,23 +319,28 @@ export class ArenaScene extends Phaser.Scene {
     let forward = this.player.vx * fx + this.player.vy * fy;
     let sideways = -this.player.vx * fy + this.player.vy * fx;
     forward += (speed * magnitude - forward) * (1 - Math.exp(-dt * (magnitude > .05 ? 5.8 : 7)));
-    sideways *= Math.exp(-dt * (boost ? 4.2 : 8.5) * surfaces[this.pitchStyle].grip);
+    sideways *= Math.exp(-dt * (boost ? 4.2 : 8.5) * surfaces[this.activePitchStyle].grip);
     this.player.vx = forward * fx - sideways * fy; this.player.vy = forward * fy + sideways * fx;
     this.player.x += this.player.vx * dt; this.player.y += this.player.vy * dt;
     const dx = this.ball.vx * dt, dy = this.ball.vy * dt;
     this.ball.x += dx; this.ball.y += dy; this.ballTravel.x += dx; this.ballTravel.y += dy;
     const ballSpeed = Math.hypot(this.ball.vx, this.ball.vy);
     if (ballSpeed > 0) {
-      const surface = surfaces[this.pitchStyle];
+      const surface = surfaces[this.activePitchStyle];
       const speedAfter = Math.min(1100, Math.max(0, ballSpeed * Math.exp(-dt * surface.drag) - surface.rolling * dt));
       this.ball.vx *= speedAfter / ballSpeed; this.ball.vy *= speedAfter / ballSpeed;
     }
-    if (collideCircles(this.player, this.ball, boost ? 1.2 : 1) && this.elapsed - this.lastBump > .22) this.impact(this.ball.x, this.ball.y, 0x97e3e4);
+    if (collideCircles(this.player, this.ball, boost ? 1.2 : 1)) {
+      if (this.botBallProtected) this.lastKick = -100;
+      this.botCarrying = false; this.botBallProtected = false;
+      this.botPickupBlockedUntil = this.elapsed + .6;
+      if (this.elapsed - this.lastBump > .22) this.impact(this.ball.x, this.ball.y, 0x97e3e4);
+    }
     for (const o of this.obstacles) {
       updateObstacle(o, this.elapsed, dt);
       if (!o.active || o.kind === 'slow-zone' || o.kind === 'speed-pad') continue;
       if (o.kind === 'pothole') {
-        for (const body of [this.player, this.ball]) if (this.elapsed > this.pitCooldown && Math.hypot(body.x - o.x, body.y - o.y) < 29) {
+        for (const body of [this.player, ...(this.botCarrying ? [] : [this.ball])]) if (this.elapsed > this.pitCooldown && Math.hypot(body.x - o.x, body.y - o.y) < 29) {
           const angle = Math.atan2(-o.y, -o.x);
           body.x = o.x + Math.cos(angle) * 80; body.y = o.y + Math.sin(angle) * 80;
           body.vx = Math.cos(angle) * 230; body.vy = Math.sin(angle) * 230;
@@ -275,7 +350,7 @@ export class ArenaScene extends Phaser.Scene {
         }
         continue;
       }
-      for (const body of [this.player, this.ball, ...(this.bot ? [this.bot] : [])]) {
+      for (const body of [this.player, ...(this.botCarrying ? [] : [this.ball])]) {
         if (o.kind === 'bumper' || o.kind === 'orbiting-bumper') {
           const dx = body.x - o.x, dy = body.y - o.y, d = Math.hypot(dx, dy), radius = o.radius + body.radius;
           if (d < radius) {
@@ -307,7 +382,7 @@ export class ArenaScene extends Phaser.Scene {
       } else if (crossedGoal(this.ball, goal.index)) { this.scoreGoal(goal); break; }
     }
     const oldVX = this.ball.vx, oldVY = this.ball.vy;
-    contain(this.player, .12); contain(this.ball, .78, this.openGoalSides);
+    contain(this.player, .12); contain(this.ball, .78, this.botBallProtected ? undefined : this.openGoalSides);
     if (Math.hypot(this.ball.vx - oldVX, this.ball.vy - oldVY) > 160 && this.elapsed - this.lastBump > .22) this.impact(this.ball.x, this.ball.y, 0xa4d6cc);
   }
 
@@ -320,31 +395,42 @@ export class ArenaScene extends Phaser.Scene {
       if (phase === 'warning') {
         const angle = this.botClock * .7;
         Object.assign(this.bot, { x: this.ball.x + Math.cos(angle) * 160, y: this.ball.y + Math.sin(angle) * 160, vx: 0, vy: 0 }); contain(this.bot, 0);
-        this.options.onFeedback({ text: 'PORTAL ROVER INCOMING', kind: 'info', detail: 'A three-second cameo. You can kick the ball away!' });
+        this.botPortal = { x: this.bot.x, y: this.bot.y };
+        this.options.onFeedback({ text: 'PORTAL ROVER INCOMING', kind: 'info', detail: 'Keep the ball moving!' });
       }
       if (phase === 'active') this.burst(this.bot.x, this.bot.y, 0xc799ff, 20);
       if (phase === 'quiet') {
-        if (this.botCarrying) { const angle = Math.atan2(-this.ball.y, -this.ball.x); this.ball.vx = Math.cos(angle) * 270; this.ball.vy = Math.sin(angle) * 270; this.ballHop = .8; }
+        if (this.botCarrying) {
+          const spawn = this.centralSpawn();
+          Object.assign(this.ball, { ...spawn, vx: 0, vy: 0 });
+          this.portal = { ...spawn, age: 0, duration: this.controls.reducedMotion ? .25 : 1.2 };
+          this.ballTravel = { x: 0, y: 0 }; this.ballTrail = []; this.ballHop = 0;
+        }
         this.botCarrying = false; this.burst(this.bot.x, this.bot.y, 0xc799ff, 20);
       }
       this.botPhase = phase;
     }
     this.botView.view.setVisible(phase === 'active');
     if (phase !== 'active') return;
-    const angle = this.botClock * 1.3;
-    const tx = this.botCarrying ? Math.cos(angle) * 310 : this.ball.x, ty = this.botCarrying ? Math.sin(angle) * 310 : this.ball.y;
+    const tx = this.botCarrying ? this.botPortal.x : this.ball.x, ty = this.botCarrying ? this.botPortal.y : this.ball.y;
     const dx = tx - this.bot.x, dy = ty - this.bot.y, d = Math.hypot(dx, dy) || 1;
-    this.bot.vx += (dx / d * 210 - this.bot.vx) * dt * 4; this.bot.vy += (dy / d * 210 - this.bot.vy) * dt * 4;
+    const speed = (210 + Math.max(0, this.match.round - 4) * 12) * Math.min(1, d / 50);
+    this.bot.vx += (dx / d * speed - this.bot.vx) * dt * 4; this.bot.vy += (dy / d * speed - this.bot.vy) * dt * 4;
     this.bot.x += this.bot.vx * dt; this.bot.y += this.bot.vy * dt;
-    if (d < 60 && !this.botCarrying && this.elapsed - this.lastKick > .6) this.botCarrying = true;
+    if (d < 60 && !this.botCarrying && this.elapsed - this.lastKick > .6 && this.elapsed >= this.botPickupBlockedUntil) {
+      this.botCarrying = true; this.botBallProtected = true; this.lastKick = -100;
+    }
     if (this.botCarrying) {
       const a = Math.atan2(this.bot.vy, this.bot.vx), x = this.bot.x + Math.cos(a) * 48, y = this.bot.y + Math.sin(a) * 48;
       this.ballTravel.x += x - this.ball.x; this.ballTravel.y += y - this.ball.y;
-      this.ball.x = x; this.ball.y = y; this.ball.vx = this.bot.vx; this.ball.vy = this.bot.vy;
-      // Stealing is playful: the rover never carries the ball through a goal.
-      contain(this.ball, .3);
-    } else collideCircles(this.bot, this.ball, .6);
-    collideCircles(this.bot, this.player, .6); contain(this.bot, .3);
+      this.ball.x = x; this.ball.y = y; this.ball.vx = 0; this.ball.vy = 0;
+      contain(this.ball, 0);
+      if (Math.hypot(this.botPortal.x - this.bot.x, this.botPortal.y - this.bot.y) < 30) {
+        this.botClock = Math.floor(this.botClock / 16) * 16 + 10;
+        this.stepBot(0);
+      }
+    }
+    contain(this.bot, .3);
   }
 
   private applyGarage() {
@@ -420,6 +506,24 @@ export class ArenaScene extends Phaser.Scene {
     g.fillStyle(0x000b10, .35).fillEllipse(this.player.x + 5, this.player.y + 6, 64, 46);
     g.fillStyle(0x000b10, .33).fillEllipse(this.ball.x + 3, this.ball.y + 5, 36 + this.ballHop * 6, 28);
     for (let i = 3; i > 0; i--) g.fillStyle(0x81dcf2, .022 * i).fillCircle(this.ball.x, this.ball.y, 19 + i * 6);
+    if (this.portal.age < this.portal.duration) {
+      const p = Phaser.Math.Clamp(this.portal.age / this.portal.duration, 0, 1);
+      const open = Math.sin(p * Math.PI);
+      g.fillStyle(0x071423, .55).fillEllipse(this.portal.x + 5, this.portal.y + 7, 88 + open * 25, 38 + open * 14);
+      air.lineStyle(5, 0x78e6ff, (1 - p) * .9).strokeEllipse(this.portal.x, this.portal.y, 88 + p * 70, 38 + p * 32);
+      air.lineStyle(3, 0xffd079, (1 - p) * .75).lineBetween(this.portal.x - 42 - open * 18, this.portal.y, this.portal.x - 10, this.portal.y);
+      air.lineStyle(3, 0xffd079, (1 - p) * .75).lineBetween(this.portal.x + 10, this.portal.y, this.portal.x + 42 + open * 18, this.portal.y);
+    }
+    if (this.introDone && this.roundZoom <= 0 && this.countdown > 0) {
+      const value = Math.max(1, Math.ceil(this.countdown));
+      const pulse = this.controls.reducedMotion ? 1 : 1 + (1 - this.countdown % 1) * .12;
+      air.fillStyle(0x061421, .55).fillCircle(0, -36, 72 * pulse);
+      air.lineStyle(4, 0x7fe7ff, .75).strokeCircle(0, -36, 76 * pulse);
+      air.fillStyle(0xffffff, .95).fillCircle(0, -36, 2);
+      this.countdownText.setText(String(value)).setScale(pulse).setVisible(true);
+    } else {
+      this.countdownText.setVisible(false);
+    }
     const fx = Math.cos(this.facing), fy = Math.sin(this.facing);
     for (const side of [-1, 1]) {
       const x = this.player.x + fx * 32 - fy * side * 10, y = this.player.y + fy * 32 + fx * side * 10;
@@ -427,11 +531,11 @@ export class ArenaScene extends Phaser.Scene {
     }
     if (this.bot && this.botPhase !== 'quiet') {
       const pulse = this.controls.reducedMotion ? 1 : 1 + Math.sin(this.elapsed * 7) * .12;
-      g.fillStyle(0x583297, .22).fillCircle(this.bot.x, this.bot.y, 46 * pulse);
-      g.lineStyle(3, 0xc38bff, .75).strokeCircle(this.bot.x, this.bot.y, 46 * pulse);
+      g.fillStyle(0x583297, .22).fillCircle(this.botPortal.x, this.botPortal.y, 46 * pulse);
+      g.lineStyle(3, 0xc38bff, .75).strokeCircle(this.botPortal.x, this.botPortal.y, 46 * pulse);
       if (this.botPhase === 'active') g.fillStyle(0x000b10, .3).fillEllipse(this.bot.x + 5, this.bot.y + 6, 64, 46);
     }
-    if (this.pitchStyle === 'worn' && speed > 180 && !this.controls.reducedMotion) for (let i = 1; i <= 5; i++) g.fillStyle(0xcfb68a, .035).fillCircle(this.player.x - Math.cos(this.facing) * (26 + i * 9), this.player.y - Math.sin(this.facing) * (26 + i * 9), 5 + i * 2);
+    if (this.activePitchStyle === 'worn' && speed > 180 && !this.controls.reducedMotion) for (let i = 1; i <= 5; i++) g.fillStyle(0xcfb68a, .035).fillCircle(this.player.x - Math.cos(this.facing) * (26 + i * 9), this.player.y - Math.sin(this.facing) * (26 + i * 9), 5 + i * 2);
     if (this.match.challenge.orbit) { g.lineStyle(1, 0xbed1eb, .14).strokeCircle(0, 0, ORBIT_RADIUS); g.lineStyle(1, 0xa290e8, .08).strokeCircle(0, 0, ORBIT_RADIUS + GOAL_DEPTH); }
     for (const spark of this.sparks) { spark.x += spark.vx * dt; spark.y += spark.vy * dt; spark.life -= dt; spark.vx *= Math.exp(-dt * 2); spark.vy *= Math.exp(-dt * 2); air.fillStyle(spark.color, Math.max(0, spark.life)).fillCircle(spark.x, spark.y, 2.5); }
     this.sparks = this.sparks.filter(s => s.life > 0);
@@ -444,6 +548,7 @@ export class ArenaScene extends Phaser.Scene {
     for (const o of this.obstacles) {
       if (!o.active && !o.warning) continue;
       if (o.kind === 'pothole') {
+        if (o.warning) { g.lineStyle(3, 0xffc570, .65).strokeCircle(o.x, o.y, 49); continue; }
         g.fillStyle(0x14262d).fillCircle(o.x, o.y, 49); g.lineStyle(3, 0xffc570, .8).strokeCircle(o.x, o.y, 49);
         g.fillStyle(0x020b14).fillCircle(o.x, o.y, 37); g.lineStyle(4, 0x355361).strokeEllipse(o.x, o.y + 8, 59, 35);
         for (let i = 0; i < 10; i++) { const a = i * Math.PI / 5; g.lineStyle(4, 0xffc570, .6).lineBetween(o.x + Math.cos(a) * 42, o.y + Math.sin(a) * 42, o.x + Math.cos(a + .13) * 48, o.y + Math.sin(a + .13) * 48); }

@@ -18,15 +18,23 @@ describe('the PRINT learning loop', () => {
     const match = new Match(); match.goal(match.targetOutput, true); match.nextRound();
     const before = match.snapshot(); const outcome = match.goal('"HELLO"', false); const after = match.snapshot();
     expect(outcome.kind).toBe('wrong'); expect(after.challenge).toEqual(before.challenge); expect(after.round).toBe(before.round);
-    expect(after.score).toBe(before.score - 20); expect(after.streak).toBe(0); expect(after.phase).toBe(0);
+    expect(after.score).toBe(0); expect(after.breakdown.penalties).toBe(before.score); expect(after.streak).toBe(0); expect(after.phase).toBe(0);
     match.goal(match.targetOutput, true); expect(match.breakdown.accuracy).toBe(40); expect(match.streak).toBe(0);
+  });
+  it('keeps the second-round target away from the first goal and resets three kicks each round', () => {
+    const rounds = makeRounds(() => .1);
+    expect(rounds[0].choices.indexOf(rounds[0].outputs[0])).toBe(0);
+    expect(rounds[1].choices.indexOf(rounds[1].outputs[0])).toBeGreaterThan(0);
+    const match = new Match(rounds); match.kickCount = 3; expect(match.kicksRemaining).toBe(0);
+    match.goal(match.targetOutput, true); match.nextRound();
+    expect(match.kickCount).toBe(0); expect(match.kicksRemaining).toBe(3);
   });
   it('requires mastery outputs in order and awards mastery once', () => {
     const match = new Match(makeRounds(() => .1));
     for (let round = 0; round < 9; round++) { match.goal(match.targetOutput, true); match.nextRound(); }
     const [first, second] = match.challenge.outputs;
-    const before = match.score; expect(match.goal(second, true).kind).toBe('wrong');
-    expect(match.goal(first, true).kind).toBe('phase'); expect(match.score).toBe(before - 20); expect(match.phase).toBe(1);
+    expect(match.goal(second, true).kind).toBe('wrong');
+    expect(match.goal(first, true).kind).toBe('phase'); expect(match.score).toBe(0); expect(match.phase).toBe(1);
     expect(match.goal(second, true).kind).toBe('complete'); expect(match.breakdown.mastery).toBe(100);
     const completedScore = match.score; match.goal(second, true); expect(match.score).toBe(completedScore);
   });
@@ -45,6 +53,7 @@ describe('the PRINT learning loop', () => {
   it('retains valid, unique misconception-based choices through randomization', () => {
     for (let i = 0; i < 20; i++) for (const round of makeRounds()) { expect(round.choices).toHaveLength(round.goals); expect(new Set(round.choices).size).toBe(round.goals); round.outputs.forEach(output => expect(round.choices).toContain(output)); }
     expect(challengeBank.some(c => c.category === 'NEGATIVE NUMBER')).toBe(true);
+    expect(makeRounds(() => .7).slice(4).every(round => round.obstacles.length >= 4 && round.bot)).toBe(true);
   });
   it('generates fresh code whose literal values exactly match the expected outputs', () => {
     expect(makeRounds(() => .1).map(r => r.code)).not.toEqual(makeRounds(() => .8).map(r => r.code));
@@ -104,6 +113,11 @@ describe('arena collision and obstacle rules', () => {
     updateObstacle(wall, 2, .1); expect(wall.warning).toBe(true); expect(wall.active).toBe(false);
     updateObstacle(wall, 3.1, .1); expect(wall.active).toBe(true);
     const [moving] = createObstacles(['moving-wall']); const y = moving.y; updateObstacle(moving, 2, .1); expect(moving.y).not.toBe(y);
+    const [pit] = createObstacles(['pothole']);
+    updateObstacle(pit, 1, .1); expect(pit.active).toBe(true);
+    updateObstacle(pit, 4, .1); expect(pit.active).toBe(false); expect(pit.warning).toBe(false);
+    updateObstacle(pit, 7, .1); expect(pit.active).toBe(false); expect(pit.warning).toBe(true);
+    updateObstacle(pit, 8, .1); expect(pit.active).toBe(true);
   });
 });
 

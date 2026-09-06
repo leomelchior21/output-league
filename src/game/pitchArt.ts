@@ -8,7 +8,9 @@ export const cssColor = (color: number) => `#${color.toString(16).padStart(6, '0
 /** Bake the detailed terrain once. Only the visible section is painted each frame. */
 export function makePitch(scene: Phaser.Scene, style: PitchStyle = 'alpine') {
   const size = 2304;
-  const texture = scene.textures.createCanvas('top-down-pitch', size, size)!;
+  const key = `top-down-pitch-${style}`;
+  if (scene.textures.exists(key)) return scene.add.image(0, 0, key).setDepth(-10);
+  const texture = scene.textures.createCanvas(key, size, size)!;
   const ctx = texture.context;
   const rand = new Phaser.Math.RandomDataGenerator(['output-league-top-down']);
   ctx.translate(size / 2, size / 2);
@@ -71,8 +73,13 @@ export function makePitch(scene: Phaser.Scene, style: PitchStyle = 'alpine') {
   outline(RADIUS - 48); ctx.strokeStyle = '#bdddc311'; ctx.lineWidth = 1; ctx.stroke();
   ctx.strokeStyle = '#d3e6ca44'; ctx.lineWidth = 3;
   line(-RADIUS, 0, RADIUS, 0);
-  ctx.beginPath(); ctx.arc(0, 0, 133, 0, Math.PI * 2); ctx.stroke();
-  ctx.strokeStyle = '#9ce0d827'; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(0, 0, 146, 0, Math.PI * 2); ctx.stroke();
+  const centerOctagon = (r: number) => {
+    ctx.beginPath();
+    for (let i = 0; i < 8; i++) { const a = -Math.PI / 8 + i * Math.PI / 4; const x = Math.cos(a) * r, y = Math.sin(a) * r; if (!i) ctx.moveTo(x, y); else ctx.lineTo(x, y); }
+    ctx.closePath();
+  };
+  centerOctagon(143); ctx.stroke();
+  ctx.strokeStyle = '#9ce0d827'; ctx.lineWidth = 1; centerOctagon(157); ctx.stroke();
   ctx.fillStyle = '#d3e6ca66'; ctx.beginPath(); ctx.arc(0, 0, 5, 0, Math.PI * 2); ctx.fill();
   // Crown in the center circle, like paint worn into the turf.
   ctx.fillStyle = '#b6dcc42b'; ctx.beginPath(); ctx.moveTo(-49, -31); ctx.lineTo(-23, -5); ctx.lineTo(0, -42); ctx.lineTo(23, -5); ctx.lineTo(49, -31); ctx.lineTo(36, 28); ctx.lineTo(-36, 28); ctx.closePath(); ctx.fill();

@@ -5,8 +5,16 @@ async function enterArena(page: Page) {
   await page.getByRole('button', { name: 'LET’S DRIVE' }).click();
   await expect(page.locator('canvas')).toBeVisible();
   await expect.poll(() => page.evaluate(() => (window as any).__arena.introDone)).toBe(true);
+  await waitForRoundReady(page);
+}
+async function waitForRoundReady(page: Page) {
+  await expect.poll(() => page.evaluate(() => {
+    const scene = (window as any).__arena;
+    return scene.introDone && scene.roundZoom <= 0 && scene.countdown <= 0;
+  }), { timeout: 20000 }).toBe(true);
 }
 async function shoot(page: Page, correct = true) {
+  await waitForRoundReady(page);
   await page.evaluate((correct) => {
     const scene = (window as any).__arena;
     const goal = scene.goals.find((g: any) => g.active && (correct ? g.output === scene.match.targetOutput : g.output !== scene.match.targetOutput));
@@ -71,6 +79,7 @@ test('real controls, physics goals, all ten rounds, mastery, results and replay'
   expect(await page.evaluate(() => (window as any).__arena.match.elapsed)).toBe(pausedXP);
   await page.getByRole('button', { name: 'RESUME MATCH' }).click();
   for (let round = 1; round < 9; round++) {
+    await waitForRoundReady(page);
     if (round === 4) expect(await page.evaluate(() => (window as any).__arena.obstacles.some((o: any) => o.kind === 'moving-wall'))).toBe(true);
     if (round === 6) expect(await page.evaluate(() => !!(window as any).__arena.bot)).toBe(true);
     if (round === 7) {
@@ -97,6 +106,7 @@ test('real controls, physics goals, all ten rounds, mastery, results and replay'
   await expect.poll(() => page.evaluate(() => (window as any).__arena.match.round)).toBe(0);
   await expect(page.getByRole('dialog', { name: 'How to play' })).toHaveCount(0);
   await expect.poll(() => page.evaluate(() => (window as any).__arena.introDone)).toBe(true);
+  await waitForRoundReady(page);
   await page.getByRole('button', { name: 'Pause match', exact: true }).click();
   await page.getByRole('button', { name: 'BACK TO JOURNEY', exact: true }).click();
   await expect(page.getByRole('button', { name: /Level 2:/ })).toHaveAttribute('aria-disabled', 'true');
