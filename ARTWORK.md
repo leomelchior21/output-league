@@ -1,0 +1,9 @@
+# Artwork provenance
+
+The original logo and inspiration images were provided by the user and retained unchanged. The game uses the logo with its transparency preserved.
+
+The launcher world was created with the **built-in image generation tool**, then compressed to WebP for the application. Runtime asset: `public/assets/world.webp`. Original generated image: `public/assets/world.png`. The live playable arena and journey islands are rendered from code, so physics, labels, and interaction are independent of the image.
+
+## Final generation prompt
+
+Use case: stylized-concept. Asset type: background artwork for a premium arcade game launcher, landscape 1536x1024. Create a polished stylized 3D game environment in the visual spirit of Rocket League: a hexagonal sports arena on a rocky floating island above an alpine lake at blue hour, pine trees, distant jagged mountains and tiny waterfalls, subtle pink sunset horizon. Composition: the six-sided arena occupies the RIGHT 65 percent of the image, with its center at about 72 percent across and 60 percent down. LEFT 38 percent should be quiet dark blue atmospheric lake and sky, unobstructed negative space for an interface that will be added in code. Arena is a large exactly SIX-sided green teal sports field, six luminous neon goal frames equally distributed on its six sides: blue cyan purple green orange yellow. Open field, just two small bumpers, a little vivid blue futuristic sports rover and glowing soccer ball. Elevated cinematic 2.5D isometric view. Refined high quality game render, tactile faceted cliffs, atmospheric depth, soft blue haze, rich midnight blue, luminous electric cyan accent. No typography, no logos, no letters, no numbers, no banners, no interface, no buttons, no watermark. Keep the arena readable and the left side calm.

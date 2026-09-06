@@ -1,0 +1,16 @@
+import { chromium, expect } from '@playwright/test';
+import { mkdir } from 'node:fs/promises';
+await mkdir('artifacts', { recursive: true });
+const browser = await chromium.launch({ args: ['--disable-gpu'] });
+const page = await browser.newPage({ viewport: { width: 1194, height: 834 } });
+await page.goto('http://127.0.0.1:5186');
+await expect(page.locator('.boot-splash')).toHaveCount(0);
+await page.screenshot({ path: 'artifacts/home-ipad.png' });
+await page.goto('http://127.0.0.1:5186/python');
+await expect(page.locator('.boot-splash')).toHaveCount(0);
+await page.screenshot({ path: 'artifacts/journey-ipad.png' });
+await page.goto('http://127.0.0.1:5186/python/level/1?qa=1');
+await page.getByRole('button', { name: 'LET’S DRIVE' }).click();
+await expect.poll(() => page.evaluate(() => window.__arena?.introDone), { timeout: 15000 }).toBe(true);
+await page.screenshot({ path: 'artifacts/arena-ipad.png' });
+await browser.close();
