@@ -65,7 +65,7 @@ test('repair pit returns the ball and portal rover releases its brief steal with
   await expect.poll(() => page.evaluate(() => (window as any).__arena?.introDone)).toBe(true);
   const pit = await page.evaluate(() => {
     const s = (window as any).__arena; s.match.round = 8; s.configureRound();
-    s.elapsed = 0;
+    s.elapsed = 0; s.countdown = 0; s.roundZoom = 0; s.spawnElapsed = 1;
     const o = s.obstacles.find((o: any) => o.kind === 'pothole'); Object.assign(s.ball, { x: o.x, y: o.y, vx: 0, vy: 0 });
     return { x: o.x, y: o.y };
   });
@@ -109,11 +109,13 @@ test('portal steals cannot score in fixed or orbit goals, and player contact res
       const goal = s.goals.find((g: any) => g.active && g.output !== s.match.targetOutput);
       s.scoreGoal(goal);
       const protectedWhileCarried = s.match.score === 120 && s.match.totalWrong === 0;
-      const distanceBefore = Math.hypot(s.bot.x - s.botPortal.x, s.bot.y - s.botPortal.y);
+      const destination = { ...s.botDestination };
+      const opposite = destination.x * s.player.x + destination.y * s.player.y < 0;
+      const distanceBefore = Math.hypot(s.bot.x - destination.x, s.bot.y - destination.y);
       for (let i = 0; i < 30; i++) s.stepBot(1 / 120);
-      const returning = Math.hypot(s.bot.x - s.botPortal.x, s.bot.y - s.botPortal.y) < distanceBefore;
-      s.botClock = 10; s.stepBot(0);
-      const returned = !s.botCarrying && !s.botView.view.visible && Math.hypot(s.ball.x, s.ball.y) < 160 && s.ball.vx === 0 && s.ball.vy === 0 && s.portal.age === 0;
+      const returning = Math.hypot(s.bot.x - destination.x, s.bot.y - destination.y) < distanceBefore;
+      for (let i = 0; i < 1200 && s.botCarrying; i++) s.stepBot(1 / 120);
+      const returned = !s.botCarrying && !s.botView.view.visible && Math.hypot(s.ball.x - destination.x, s.ball.y - destination.y) < 1 && s.ball.vx === 0 && s.ball.vy === 0;
       for (const g of s.goals.filter((g: any) => g.active)) {
         Object.assign(s.ball, { x: g.x + g.nx * 20, y: g.y + g.ny * 20, vx: 0, vy: 0 });
         s.step(1 / 120);
@@ -125,16 +127,16 @@ test('portal steals cannot score in fixed or orbit goals, and player contact res
       s.step(1 / 120);
       const recovered = !s.botBallProtected;
       s.scoreGoal(goal);
-      const wrongGoalCounts = s.match.score === 0 && s.match.totalWrong === 1;
+      const wrongGoalCounts = s.match.score === 70 && s.match.totalWrong === 1;
       s.match.totalWrong = 0;
-      return { warned, carried, protectedWhileCarried, returning, returned, protectedAfterReturn, recovered, wrongGoalCounts };
+      return { warned, carried, opposite, protectedWhileCarried, returning, returned, protectedAfterReturn, recovered, wrongGoalCounts };
     });
     s.match.round = 4; s.transition = 0; s.configureRound(); s.countdown = 0;
     s.botClock = 6; s.stepBot(0); s.botClock = 7; s.stepBot(0);
     Object.assign(s.bot, { x: 0, y: 0, vx: 0, vy: 0 });
     Object.assign(s.ball, { x: 12, y: 0, vx: 0, vy: 0 });
     s.botPortal = { x: 200, y: 0 }; s.stepBot(1 / 120);
-    s.renderBodies(0); s.renderEffects(0); s.updateCamera(0);
+    s.spawnElapsed = 1; s.spawnLift = 0; s.renderBodies(0); s.renderEffects(0); s.updateCamera(0);
     return { classic, results };
   });
   expect(results.classic).toBe('alpine');
@@ -149,6 +151,13 @@ test('round zoom precedes all three countdown numbers and kicks stay limited', a
   const result = await page.evaluate(() => {
     const s = (window as any).__arena; s.scene.pause();
     s.match.round = 1; s.configureRound();
+    const centered = s.ball.x === 0 && s.ball.y === 0 && s.spawnLift === 100;
+    s.advanceSpawn(.3);
+    const falling = s.spawnLift > 0 && s.spawnLift < 100 && s.ball.x === 0 && s.ball.y === 0;
+    s.advanceSpawn(.5);
+    const bouncing = s.spawnLift > 0 && Math.hypot(s.ball.x, s.ball.y) > 0 && Math.hypot(s.ball.x, s.ball.y) < 26;
+    s.advanceSpawn(.2);
+    const landed = s.spawnLift < .001 && Math.abs(Math.hypot(s.ball.x, s.ball.y) - 26) < .001 && s.ball.vx === 0 && s.ball.vy === 0;
     const hiddenDuringZoom = !s.countdownText.visible;
     s.update(0, 1500);
     const numbers = [s.countdownText.text];
@@ -166,8 +175,8 @@ test('round zoom precedes all three countdown numbers and kicks stay limited', a
     s.match.round = 7; s.configureRound(); s.elapsed += 1; s.kick();
     const orbitBlocked = s.match.kicksRemaining === 3;
     s.options.onSnapshot(s.match.snapshot());
-    return { hiddenDuringZoom, numbers, frozenXP, ready, limited, reset, orbitBlocked };
+    return { centered, falling, bouncing, landed, hiddenDuringZoom, numbers, frozenXP, ready, limited, reset, orbitBlocked };
   });
-  expect(result).toEqual({ hiddenDuringZoom: true, numbers: ['3', '2', '1'], frozenXP: true, ready: true, limited: true, reset: true, orbitBlocked: true });
+  expect(result).toEqual({ centered: true, falling: true, bouncing: true, landed: true, hiddenDuringZoom: true, numbers: ['3', '2', '1'], frozenXP: true, ready: true, limited: true, reset: true, orbitBlocked: true });
   await expect(page.locator('.kick-button')).toHaveCount(0);
 });

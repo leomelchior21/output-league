@@ -10,7 +10,7 @@ async function enterArena(page: Page) {
 async function waitForRoundReady(page: Page) {
   await expect.poll(() => page.evaluate(() => {
     const scene = (window as any).__arena;
-    return scene.introDone && scene.roundZoom <= 0 && scene.countdown <= 0;
+    return scene.introDone && scene.roundZoom <= 0 && scene.countdown <= 0 && scene.spawnElapsed >= 1;
   }), { timeout: 20000 }).toBe(true);
 }
 async function shoot(page: Page, correct = true) {

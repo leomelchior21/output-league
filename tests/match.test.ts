@@ -18,7 +18,7 @@ describe('the PRINT learning loop', () => {
     const match = new Match(); match.goal(match.targetOutput, true); match.nextRound();
     const before = match.snapshot(); const outcome = match.goal('"HELLO"', false); const after = match.snapshot();
     expect(outcome.kind).toBe('wrong'); expect(after.challenge).toEqual(before.challenge); expect(after.round).toBe(before.round);
-    expect(after.score).toBe(0); expect(after.breakdown.penalties).toBe(before.score); expect(after.streak).toBe(0); expect(after.phase).toBe(0);
+    expect(after.score).toBe(before.score - 50); expect(after.breakdown.penalties).toBe(50); expect(after.streak).toBe(0); expect(after.phase).toBe(0);
     match.goal(match.targetOutput, true); expect(match.breakdown.accuracy).toBe(40); expect(match.streak).toBe(0);
   });
   it('keeps the second-round target away from the first goal and resets three kicks each round', () => {
@@ -33,8 +33,9 @@ describe('the PRINT learning loop', () => {
     const match = new Match(makeRounds(() => .1));
     for (let round = 0; round < 9; round++) { match.goal(match.targetOutput, true); match.nextRound(); }
     const [first, second] = match.challenge.outputs;
+    const before = match.score;
     expect(match.goal(second, true).kind).toBe('wrong');
-    expect(match.goal(first, true).kind).toBe('phase'); expect(match.score).toBe(0); expect(match.phase).toBe(1);
+    expect(match.goal(first, true).kind).toBe('phase'); expect(match.score).toBe(before - 50); expect(match.phase).toBe(1);
     expect(match.goal(second, true).kind).toBe('complete'); expect(match.breakdown.mastery).toBe(100);
     const completedScore = match.score; match.goal(second, true); expect(match.score).toBe(completedScore);
   });
@@ -49,6 +50,16 @@ describe('the PRINT learning loop', () => {
     expect(perfect.stars).toBe(3); expect(guessing.stars).toBe(1);
     expect(perfect.breakdown.special).toBe(40); expect(pythonLevels.slice(1).every(l => l.locked)).toBe(true);
     const b = perfect.breakdown; expect(perfect.score).toBe(b.roundXP + b.accuracy + b.cleanShot + b.streak + b.special + b.mastery - b.penalties);
+  });
+  it('caps repeated wrong-goal deductions at the remaining score', () => {
+    const match = new Match(); match.goal(match.targetOutput, false); match.nextRound();
+    const earned = match.score;
+    for (let i = 0; i < 20; i++) {
+      const before = match.score;
+      expect(match.goal('not an output', false).earned).toBe(-Math.min(50, before));
+      expect(match.score).toBe(Math.max(0, before - 50));
+    }
+    expect(match.breakdown.penalties).toBe(earned);
   });
   it('retains valid, unique misconception-based choices through randomization', () => {
     for (let i = 0; i < 20; i++) for (const round of makeRounds()) { expect(round.choices).toHaveLength(round.goals); expect(new Set(round.choices).size).toBe(round.goals); round.outputs.forEach(output => expect(round.choices).toContain(output)); }

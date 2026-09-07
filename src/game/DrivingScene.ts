@@ -41,6 +41,8 @@ export class ArenaScene extends Phaser.Scene {
   private botCarrying = false;
   private botClock = 0;
   private botPortal = { x: 0, y: 0 };
+  private botDestination = { x: 0, y: 0 };
+  private botCarryElapsed = 0;
   private botBallProtected = false;
   private botPickupBlockedUntil = 0;
   private pitCooldown = 0;
@@ -79,6 +81,9 @@ export class ArenaScene extends Phaser.Scene {
   private steering = 0;
   private ballTravel = { x: 0, y: 0 };
   private ballHop = 0;
+  private spawnElapsed = 1;
+  private spawnAngle = 0;
+  private spawnLift = 0;
 
   constructor(options: ArenaOptions) { super('Arena'); this.options = options; this.controls = options.controls; this.pitchStyle = selectPitch(this.controls.settings?.pitch ?? 'shuffle'); }
 
@@ -148,13 +153,14 @@ export class ArenaScene extends Phaser.Scene {
     this.world.addAt(this.pitch, 0);
   }
 
-  private centralSpawn() {
-    const apothem = 112;
-    for (let attempt = 0; attempt < 40; attempt++) {
-      const x = (Math.random() * 2 - 1) * apothem, y = (Math.random() * 2 - 1) * apothem;
-      if (SIDES.every(side => x * side.nx + y * side.ny <= apothem) && Math.hypot(x - this.player.x, y - this.player.y) > 88) return { x, y };
-    }
-    return { x: 0, y: 35 };
+  private advanceSpawn(dt: number) {
+    if (this.spawnElapsed >= 1) return;
+    this.spawnElapsed = Math.min(1, this.spawnElapsed + dt);
+    const fall = Math.min(1, this.spawnElapsed / .6);
+    const bounce = Math.max(0, (this.spawnElapsed - .6) / .4);
+    this.spawnLift = this.controls.reducedMotion ? 0 : fall < 1 ? 100 * (1 - fall * fall) : Math.sin(bounce * Math.PI) * 14;
+    this.ball.x = Math.cos(this.spawnAngle) * bounce * 26;
+    this.ball.y = Math.sin(this.spawnAngle) * bounce * 26;
   }
 
   private resetPositions(countdown = false, zoom = false) {
@@ -162,10 +168,11 @@ export class ArenaScene extends Phaser.Scene {
     this.botBallProtected = false;
     this.botPickupBlockedUntil = 0;
     Object.assign(this.player, { x: 0, y: 190, vx: 0, vy: 0 });
-    const spawn = this.centralSpawn(); Object.assign(this.ball, { x: spawn.x, y: spawn.y, vx: 0, vy: 0 });
+    Object.assign(this.ball, { x: 0, y: 0, vx: 0, vy: 0 });
+    this.spawnElapsed = 0; this.spawnAngle = Math.random() * Math.PI * 2; this.spawnLift = this.controls.reducedMotion ? 0 : 100;
     this.facing = -Math.PI / 2; this.lastKick = -100; this.goalTouch = false; this.ballHop = 0;
     this.trails = []; this.ballTrail = []; this.ballTravel = { x: 0, y: 0 }; this.steering = 0;
-    this.portal = { x: spawn.x, y: spawn.y, age: 0, duration: this.controls.reducedMotion ? .25 : 1.2 };
+    this.portal = { x: 0, y: 0, age: 0, duration: this.controls.reducedMotion ? .25 : 1.2 };
     this.roundZoom = zoom && !this.controls.reducedMotion ? ROUND_ZOOM_TIME : 0;
     this.countdown = countdown ? COUNTDOWN_TIME : 0;
     this.controls.kickDisabled = this.match.challenge.orbit || this.match.kicksRemaining <= 0 || this.countdown > 0 || this.roundZoom > 0;
@@ -263,6 +270,7 @@ export class ArenaScene extends Phaser.Scene {
       this.atmosphere.update(wallDt, this.elapsed, this.cameraState, this.controls.reducedMotion);
       return;
     }
+    this.advanceSpawn(wallDt);
     if (this.countdown > 0) {
       this.countdown = Math.max(0, this.countdown - wallDt);
       this.controls.kickRequested = false; this.controls.kickDisabled = true; this.guidance.root.setVisible(false);
@@ -274,6 +282,10 @@ export class ArenaScene extends Phaser.Scene {
       this.updateCamera(dt); this.drawObstacles(); this.renderBodies(dt); this.renderEffects(dt);
       this.atmosphere.update(wallDt, this.elapsed, this.cameraState, this.controls.reducedMotion);
       return;
+    }
+    if (this.spawnElapsed < 1) {
+      this.controls.kickRequested = false; this.controls.kickDisabled = true;
+      this.renderBodies(dt); this.renderEffects(dt); return;
     }
     this.controls.kickDisabled = this.match.challenge.orbit || this.match.kicksRemaining <= 0;
     if (this.controls.kickRequested) { this.controls.kickRequested = false; if (!this.match.levelComplete && this.transition <= 0) this.kick(); }
@@ -389,6 +401,7 @@ export class ArenaScene extends Phaser.Scene {
   private stepBot(dt: number) {
     if (!this.bot) return;
     let phase = tricksterPhase(this.botClock);
+    if (this.botCarrying) phase = this.botCarryElapsed >= 8 ? 'quiet' : 'active';
     // A slow frame must never skip the warning and spawn a rover without notice.
     if (phase === 'active' && this.botPhase === 'quiet') { this.botClock = Math.floor(this.botClock / 16) * 16 + 6; phase = 'warning'; }
     if (phase !== this.botPhase) {
@@ -401,9 +414,8 @@ export class ArenaScene extends Phaser.Scene {
       if (phase === 'active') this.burst(this.bot.x, this.bot.y, 0xc799ff, 20);
       if (phase === 'quiet') {
         if (this.botCarrying) {
-          const spawn = this.centralSpawn();
-          Object.assign(this.ball, { ...spawn, vx: 0, vy: 0 });
-          this.portal = { ...spawn, age: 0, duration: this.controls.reducedMotion ? .25 : 1.2 };
+          this.ball.vx = 0; this.ball.vy = 0;
+          this.botClock = Math.floor(this.botClock / 16) * 16 + 10;
           this.ballTravel = { x: 0, y: 0 }; this.ballTrail = []; this.ballHop = 0;
         }
         this.botCarrying = false; this.burst(this.bot.x, this.bot.y, 0xc799ff, 20);
@@ -412,21 +424,28 @@ export class ArenaScene extends Phaser.Scene {
     }
     this.botView.view.setVisible(phase === 'active');
     if (phase !== 'active') return;
-    const tx = this.botCarrying ? this.botPortal.x : this.ball.x, ty = this.botCarrying ? this.botPortal.y : this.ball.y;
+    const tx = this.botCarrying ? this.botDestination.x : this.ball.x, ty = this.botCarrying ? this.botDestination.y : this.ball.y;
     const dx = tx - this.bot.x, dy = ty - this.bot.y, d = Math.hypot(dx, dy) || 1;
     const speed = (210 + Math.max(0, this.match.round - 4) * 12) * Math.min(1, d / 50);
     this.bot.vx += (dx / d * speed - this.bot.vx) * dt * 4; this.bot.vy += (dy / d * speed - this.bot.vy) * dt * 4;
     this.bot.x += this.bot.vx * dt; this.bot.y += this.bot.vy * dt;
     if (d < 60 && !this.botCarrying && this.elapsed - this.lastKick > .6 && this.elapsed >= this.botPickupBlockedUntil) {
       this.botCarrying = true; this.botBallProtected = true; this.lastKick = -100;
+      this.botCarryElapsed = 0;
+      const origin = Math.hypot(this.ball.x, this.ball.y) > 60 ? this.ball : this.player;
+      const angle = Math.atan2(-origin.y, -origin.x);
+      const radius = this.match.challenge.orbit ? ORBIT_RADIUS - 130 : APOTHEM * .7;
+      this.botDestination = { x: Math.cos(angle) * radius, y: Math.sin(angle) * radius };
     }
     if (this.botCarrying) {
+      this.botCarryElapsed += dt;
       const a = Math.atan2(this.bot.vy, this.bot.vx), x = this.bot.x + Math.cos(a) * 48, y = this.bot.y + Math.sin(a) * 48;
       this.ballTravel.x += x - this.ball.x; this.ballTravel.y += y - this.ball.y;
       this.ball.x = x; this.ball.y = y; this.ball.vx = 0; this.ball.vy = 0;
       contain(this.ball, 0);
-      if (Math.hypot(this.botPortal.x - this.bot.x, this.botPortal.y - this.bot.y) < 30) {
-        this.botClock = Math.floor(this.botClock / 16) * 16 + 10;
+      if (Math.hypot(this.botDestination.x - this.bot.x, this.botDestination.y - this.bot.y) < 30) {
+        Object.assign(this.ball, this.botDestination);
+        this.botCarryElapsed = 8;
         this.stepBot(0);
       }
     }
@@ -466,7 +485,7 @@ export class ArenaScene extends Phaser.Scene {
       for (const y of [-9, 6]) { e.fillStyle(this.trailColor, .4).fillTriangle(-36, y - 5, -36, y + 5, -39 - length, y); e.fillStyle(0xf1faff, .9).fillTriangle(-37, y - 2, -37, y + 2, -39 - length * .65, y); }
     }
     this.ballHop = Math.max(0, this.ballHop - dt * 2.8);
-    const lift = this.controls.reducedMotion ? 0 : Math.sin(this.ballHop * Math.PI) * 6;
+    const lift = this.controls.reducedMotion ? 0 : this.spawnLift + Math.sin(this.ballHop * Math.PI) * 6;
     this.ballArt.view.setPosition(this.ball.x, this.ball.y - lift).setScale(1 + lift * .008);
     this.ballArt.roll(this.ballTravel.x, this.ballTravel.y); this.ballTravel = { x: 0, y: 0 };
     if (this.bot) this.botView.view.setPosition(this.bot.x, this.bot.y).setRotation(Math.atan2(this.bot.vy, this.bot.vx));

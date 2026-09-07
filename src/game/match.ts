@@ -15,7 +15,7 @@ export class Match {
   goal(output: string, clean: boolean): { kind: 'wrong' | 'phase' | 'correct' | 'complete'; earned: number } {
     if (this.levelComplete) return { kind: 'complete', earned: 0 };
     if (output !== this.targetOutput) {
-      const penalty = this.score;
+      const penalty = Math.min(50, this.score);
       this.score -= penalty; this.breakdown.penalties += penalty;
       this.wrongGoalsThisRound++; this.totalWrong++; this.streak = 0;
       return { kind: 'wrong', earned: -penalty };
