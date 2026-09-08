@@ -11,6 +11,7 @@ export class ArenaGuidance {
   private radarLabels: Phaser.GameObjects.Text[];
   private ballLabel: Phaser.GameObjects.Text;
   private radarTitle: Phaser.GameObjects.Text;
+  private readonly showRadar = false;
   constructor(scene: Phaser.Scene) {
     this.lines = scene.add.graphics();
     const text = (size: number) => scene.add.text(0, 0, '', { fontFamily: 'Consolas, monospace', fontSize: `${size}px`, fontStyle: 'bold', color: '#e7faff', backgroundColor: '#081e2cf0', padding: { x: 10, y: 7 } }).setOrigin(.5);
@@ -48,6 +49,11 @@ export class ArenaGuidance {
     this.labels.forEach((label, i) => { const goal = active[i]; if (!goal) label.setVisible(false); else indicator({ x: goal.x + (goal.nx ?? 0) * 49, y: goal.y + (goal.ny ?? 0) * 49 }, label, goal.color, goal.output); });
     indicator(ball, this.ballLabel, 0xe2f8ff, `BALL · ${Math.max(1, Math.round(Math.hypot(ball.x - player.x, ball.y - player.y) / 40))}m`, true);
 
+    if (!this.showRadar) {
+      this.radarTitle.setVisible(false);
+      this.radarLabels.forEach(label => label.setVisible(false));
+      return;
+    }
     const map = { x: 357, y: 719, scale: 51 / RADIUS };
     g.fillStyle(0x061927, .84).fillRoundedRect(250, 644, 214, 139, 11);
     g.lineStyle(1, 0x527d95, .42).strokeRoundedRect(250, 644, 214, 139, 11);

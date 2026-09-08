@@ -12,8 +12,25 @@ export function getSettings(): Settings {
 }
 export function hasSeenTutorial() { try { return localStorage.getItem('output-league:tutorial') === '1'; } catch { return false; } }
 export function rememberTutorial() { try { localStorage.setItem('output-league:tutorial', '1'); } catch { /* Optional persistence. */ } }
-export function getProgress(): Progress {
-  try { const p = JSON.parse(localStorage.getItem('output-league:progress') || '{}'); return { bestScore: Number.isFinite(p.bestScore) ? Math.max(0, p.bestScore) : 0, stars: Number.isInteger(p.stars) ? Math.max(0, Math.min(3, p.stars)) : 0, complete: p.complete === true }; } catch { return { bestScore: 0, stars: 0, complete: false }; }
+function cleanProgress(p: Partial<Progress> = {}): Progress {
+  return { bestScore: Number.isFinite(p.bestScore) ? Math.max(0, Number(p.bestScore)) : 0, stars: Number.isInteger(p.stars) ? Math.max(0, Math.min(3, Number(p.stars))) : 0, complete: p.complete === true };
+}
+export function getProgress(levelId = 1): Progress {
+  try {
+    const levels = JSON.parse(localStorage.getItem('output-league:level-progress') || '{}');
+    if (levels[levelId]) return cleanProgress(levels[levelId]);
+    if (levelId === 1) return cleanProgress(JSON.parse(localStorage.getItem('output-league:progress') || '{}'));
+    return cleanProgress();
+  } catch { return cleanProgress(); }
 }
 export function saveSettings(s: Settings) { try { localStorage.setItem('output-league:settings', JSON.stringify(s)); } catch { /* Play remains available without storage. */ } }
-export function saveProgress(score: number, stars: number) { const old = getProgress(); try { localStorage.setItem('output-league:progress', JSON.stringify({ bestScore: Math.max(old.bestScore, score), stars: Math.max(old.stars, stars), complete: true })); } catch { /* Private browsing may disable storage. */ } }
+export function saveProgress(score: number, stars: number, levelId = 1) {
+  const old = getProgress(levelId), next = { bestScore: Math.max(old.bestScore, score), stars: Math.max(old.stars, stars), complete: true };
+  try {
+    const levels = JSON.parse(localStorage.getItem('output-league:level-progress') || '{}');
+    levels[levelId] = next;
+    localStorage.setItem('output-league:level-progress', JSON.stringify(levels));
+    // Keep the original Level 1 record readable by existing installations and tests.
+    if (levelId === 1) localStorage.setItem('output-league:progress', JSON.stringify(next));
+  } catch { /* Private browsing may disable storage. */ }
+}

@@ -144,7 +144,7 @@ test('portal steals cannot score in fixed or orbit goals, and player contact res
   await page.screenshot({ path: `test-results/portal-steal-${testInfo.project.name}.png` });
 });
 
-test('round zoom precedes all three countdown numbers and kicks stay limited', async ({ page }) => {
+test('round zoom and countdown finish before the ball drops, and kicks stay limited', async ({ page }) => {
   await page.addInitScript(() => { localStorage.setItem('output-league:tutorial', '1'); localStorage.setItem('output-league:settings', JSON.stringify({ sound: false })); });
   await page.goto('/python/level/1?qa=1');
   await expect.poll(() => page.evaluate(() => (window as any).__arena?.introDone)).toBe(true);
@@ -152,19 +152,21 @@ test('round zoom precedes all three countdown numbers and kicks stay limited', a
     const s = (window as any).__arena; s.scene.pause();
     s.match.round = 1; s.configureRound();
     const centered = s.ball.x === 0 && s.ball.y === 0 && s.spawnLift === 100;
-    s.advanceSpawn(.3);
-    const falling = s.spawnLift > 0 && s.spawnLift < 100 && s.ball.x === 0 && s.ball.y === 0;
-    s.advanceSpawn(.5);
-    const bouncing = s.spawnLift > 0 && Math.hypot(s.ball.x, s.ball.y) > 0 && Math.hypot(s.ball.x, s.ball.y) < 26;
-    s.advanceSpawn(.2);
-    const landed = s.spawnLift < .001 && Math.abs(Math.hypot(s.ball.x, s.ball.y) - 26) < .001 && s.ball.vx === 0 && s.ball.vy === 0;
     const hiddenDuringZoom = !s.countdownText.visible;
     s.update(0, 1500);
     const numbers = [s.countdownText.text];
     s.update(0, 1000); numbers.push(s.countdownText.text);
     s.update(0, 1000); numbers.push(s.countdownText.text);
     const frozenXP = s.match.elapsed === 0;
+    const heldDuringCountdown = s.spawnElapsed === 0 && s.spawnLift === 100;
     s.update(0, 1000);
+    const waitingToDrop = !s.countdownText.visible && s.spawnElapsed === 0 && s.controls.kickDisabled;
+    s.update(0, 300);
+    const falling = s.spawnLift > 0 && s.spawnLift < 100 && s.ball.x === 0 && s.ball.y === 0;
+    s.update(0, 500);
+    const bouncing = s.spawnLift > 0 && Math.hypot(s.ball.x, s.ball.y) > 0 && Math.hypot(s.ball.x, s.ball.y) < 26;
+    s.update(0, 200);
+    const landed = s.spawnLift < .001 && Math.abs(Math.hypot(s.ball.x, s.ball.y) - 26) < .001 && s.ball.vx === 0 && s.ball.vy === 0;
     const ready = !s.countdownText.visible && !s.controls.kickDisabled;
     for (let i = 0; i < 4; i++) {
       s.elapsed += 1; Object.assign(s.ball, { x: s.player.x, y: s.player.y - 70, vx: 0, vy: 0 }); s.kick();
@@ -175,8 +177,50 @@ test('round zoom precedes all three countdown numbers and kicks stay limited', a
     s.match.round = 7; s.configureRound(); s.elapsed += 1; s.kick();
     const orbitBlocked = s.match.kicksRemaining === 3;
     s.options.onSnapshot(s.match.snapshot());
-    return { centered, falling, bouncing, landed, hiddenDuringZoom, numbers, frozenXP, ready, limited, reset, orbitBlocked };
+    return { centered, falling, bouncing, landed, hiddenDuringZoom, numbers, frozenXP, heldDuringCountdown, waitingToDrop, ready, limited, reset, orbitBlocked };
   });
-  expect(result).toEqual({ centered: true, falling: true, bouncing: true, landed: true, hiddenDuringZoom: true, numbers: ['3', '2', '1'], frozenXP: true, ready: true, limited: true, reset: true, orbitBlocked: true });
+  expect(result).toEqual({ centered: true, falling: true, bouncing: true, landed: true, hiddenDuringZoom: true, numbers: ['3', '2', '1'], frozenXP: true, heldDuringCountdown: true, waitingToDrop: true, ready: true, limited: true, reset: true, orbitBlocked: true });
   await expect(page.locator('.kick-button')).toHaveCount(0);
+});
+
+test('level progress unlocks only Levels 2 through 4 and the secondary radar stays hidden', async ({ page }) => {
+  await page.goto('/');
+  await page.evaluate(() => {
+    localStorage.setItem('output-league:tutorial', '1');
+    localStorage.setItem('output-league:settings', JSON.stringify({ reducedMotion: true, sound: false }));
+    localStorage.setItem('output-league:progress', JSON.stringify({ bestScore: 900, stars: 2, complete: true }));
+  });
+  await page.goto('/python');
+  await expect(page.getByRole('button', { name: /Level 2:/ })).toHaveAttribute('aria-disabled', 'false');
+  await expect(page.getByRole('button', { name: /Level 3:/ })).toHaveAttribute('aria-disabled', 'true');
+  await page.evaluate(() => localStorage.setItem('output-league:level-progress', JSON.stringify({
+    1: { bestScore: 900, stars: 2, complete: true },
+    2: { bestScore: 1000, stars: 2, complete: true },
+    3: { bestScore: 1100, stars: 3, complete: true },
+    4: { bestScore: 1200, stars: 3, complete: true },
+  })));
+  await page.reload();
+  await expect(page.getByRole('button', { name: /Level 4:/ })).toHaveAttribute('aria-disabled', 'false');
+  await expect(page.getByRole('button', { name: /Level 5:/ })).toHaveAttribute('aria-disabled', 'true');
+  await page.getByRole('button', { name: /Level 4:/ }).click();
+  await page.getByRole('button', { name: 'PLAY MATCH' }).click();
+  await expect(page.locator('.code-panel-label').first()).toContainText('PYTHON · LEVEL 04');
+  await page.goto('/python/level/4?qa=1');
+  await expect.poll(() => page.evaluate(() => Boolean((window as any).__arena))).toBe(true);
+  await expect.poll(() => page.evaluate(() => (window as any).__arena?.introDone)).toBe(true);
+  await expect(page.locator('.game-screen')).toHaveClass(/kickoff-active/);
+  const kickoffCodeBox = (await page.locator('.code-panel').boundingBox())!;
+  const viewportCenter = await page.evaluate(() => innerWidth / 2);
+  expect(Math.abs(kickoffCodeBox.x + kickoffCodeBox.width / 2 - viewportCenter)).toBeLessThan(5);
+  await expect.poll(() => page.evaluate(() => (window as any).__arena?.introDone && (window as any).__arena?.spawnElapsed >= 1)).toBe(true);
+  await expect(page.locator('.game-screen')).not.toHaveClass(/kickoff-active/);
+  const state = await page.evaluate(() => {
+    const scene = (window as any).__arena;
+    return { levelLabel: document.querySelector('.code-panel-label')?.textContent?.trim(), rounds: scene.match.rounds.length, first: scene.match.rounds[0].outputs[0], last: scene.match.rounds[9].outputs[0], radarVisible: scene.guidance.radarTitle.visible };
+  });
+  expect(state).toEqual({ levelLabel: 'PYTHON · LEVEL 04WHAT GETS PRINTED?', rounds: 10, first: '8', last: '9', radarVisible: false });
+  const codeBox = (await page.locator('.code-panel').boundingBox())!;
+  const roundBox = (await page.locator('.round-progress').boundingBox())!;
+  expect(codeBox.x).toBeLessThan(120); expect(codeBox.y).toBeLessThan(80); expect(codeBox.width).toBeLessThanOrEqual(280);
+  expect(Math.abs(roundBox.x + roundBox.width / 2 - (await page.evaluate(() => innerWidth / 2)))).toBeLessThan(5);
 });

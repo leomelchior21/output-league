@@ -10,6 +10,7 @@ import type { ArenaOptions, Controls } from './ArenaScene';
 import { paints, trails, selectPitch, surfaces, type PitchStyle } from '../data/garage';
 import { StadiumAtmosphere } from './StadiumAtmosphere';
 import { tricksterPhase } from './distractions';
+import { makeLevelRounds } from '../data/challenges';
 
 interface Goal { index: number; output: string; x: number; y: number; nx: number; ny: number; color: number; active: boolean; art: GoalArt }
 interface Spark { x: number; y: number; vx: number; vy: number; life: number; color: number }
@@ -20,7 +21,7 @@ const ROUND_ZOOM_TIME = 1.45;
 const COUNTDOWN_TIME = 3;
 
 export class ArenaScene extends Phaser.Scene {
-  readonly match = new Match();
+  readonly match: Match;
   readonly controls: Controls;
   readonly options: ArenaOptions;
   readonly player: Body = { x: 0, y: 115, vx: 0, vy: 0, radius: 25 };
@@ -68,6 +69,7 @@ export class ArenaScene extends Phaser.Scene {
   private trailElapsed = 0;
   private transition = 0;
   private pendingNext = false;
+  private awaitingNext = false;
   private roundZoom = 0;
   private countdown = 0;
   private portal = { x: 0, y: 0, age: 2, duration: 1.2 };
@@ -85,7 +87,7 @@ export class ArenaScene extends Phaser.Scene {
   private spawnAngle = 0;
   private spawnLift = 0;
 
-  constructor(options: ArenaOptions) { super('Arena'); this.options = options; this.controls = options.controls; this.pitchStyle = selectPitch(this.controls.settings?.pitch ?? 'shuffle'); }
+  constructor(options: ArenaOptions) { super('Arena'); this.options = options; this.controls = options.controls; this.match = new Match(makeLevelRounds(options.levelId ?? 1)); this.pitchStyle = selectPitch(this.controls.settings?.pitch ?? 'shuffle'); }
 
   create() {
     this.world = this.add.container(0, 0);
@@ -125,6 +127,8 @@ export class ArenaScene extends Phaser.Scene {
   }
 
   private configureRound() {
+    this.awaitingNext = false; this.pendingNext = false; this.controls.nextRoundRequested = false;
+    this.options.onAwaitingNext(false); this.options.onKickoffChange(true);
     this.goals.forEach(g => { g.art.frame.destroy(); g.art.label.destroy(); }); this.goals = [];
     const challenge = this.match.challenge;
     const activeSlots = challenge.goals === 4 ? [4, 0, 1, 3] : [0, 1, 2, 3, 4, 5];
@@ -217,6 +221,8 @@ export class ArenaScene extends Phaser.Scene {
     const outcome = this.match.goal(goal.output, this.elapsed - this.lastKick < 3.2);
     this.transition = outcome.kind === 'wrong' ? 1.55 : 2.3;
     this.pendingNext = outcome.kind === 'correct';
+    this.awaitingNext = outcome.kind === 'correct';
+    if (this.awaitingNext) this.options.onAwaitingNext(true);
     this.ball.vx = 0; this.ball.vy = 0; this.player.vx = 0; this.player.vy = 0;
     if (outcome.kind === 'wrong') {
       this.options.onFeedback({ text: 'WRONG OUTPUT', kind: 'wrong', id: this.elapsed, detail: `${outcome.earned} XP · Read it again. You’ve got another shot.` });
@@ -270,22 +276,33 @@ export class ArenaScene extends Phaser.Scene {
       this.atmosphere.update(wallDt, this.elapsed, this.cameraState, this.controls.reducedMotion);
       return;
     }
-    this.advanceSpawn(wallDt);
     if (this.countdown > 0) {
       this.countdown = Math.max(0, this.countdown - wallDt);
       this.controls.kickRequested = false; this.controls.kickDisabled = true; this.guidance.root.setVisible(false);
       if (this.countdown <= 0) {
         this.guidance.root.setVisible(true);
-        this.controls.kickDisabled = this.match.challenge.orbit || this.match.kicksRemaining <= 0;
+        this.controls.kickDisabled = this.spawnElapsed < 1 || this.match.challenge.orbit || this.match.kicksRemaining <= 0;
+        this.options.onKickoffChange(false);
         this.options.onSnapshot(this.match.snapshot());
       }
       this.updateCamera(dt); this.drawObstacles(); this.renderBodies(dt); this.renderEffects(dt);
       this.atmosphere.update(wallDt, this.elapsed, this.cameraState, this.controls.reducedMotion);
       return;
     }
+    this.advanceSpawn(wallDt);
     if (this.spawnElapsed < 1) {
       this.controls.kickRequested = false; this.controls.kickDisabled = true;
       this.renderBodies(dt); this.renderEffects(dt); return;
+    }
+    if (this.awaitingNext) {
+      this.controls.kickRequested = false; this.controls.kickDisabled = true;
+      if (this.controls.nextRoundRequested) {
+        this.controls.nextRoundRequested = false; this.awaitingNext = false; this.pendingNext = false; this.transition = 0;
+        this.options.onAwaitingNext(false); this.match.nextRound(); this.configureRound();
+        this.options.onFeedback({ text: this.match.challenge.category, kind: 'info', detail: this.match.challenge.lesson });
+        this.options.onSnapshot(this.match.snapshot());
+      }
+      this.updateCamera(dt); this.drawObstacles(); this.renderBodies(dt); this.renderEffects(dt); return;
     }
     this.controls.kickDisabled = this.match.challenge.orbit || this.match.kicksRemaining <= 0;
     if (this.controls.kickRequested) { this.controls.kickRequested = false; if (!this.match.levelComplete && this.transition <= 0) this.kick(); }

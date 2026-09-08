@@ -65,6 +65,10 @@ test('real controls, physics goals, all ten rounds, mastery, results and replay'
   await page.evaluate(() => { const s = (window as any).__arena; s.player.x = 0; s.player.y = 115; s.player.vx = 0; s.player.vy = 0; s.ball.x = 0; s.ball.y = 35; s.ball.vx = 0; s.ball.vy = 0; s.facing = -Math.PI / 2; });
   await page.keyboard.press('Space');
   await expect.poll(() => page.evaluate(() => (window as any).__arena.match.kickCount)).toBe(1);
+  await expect(page.getByRole('button', { name: 'NEXT ROUND' })).toBeVisible();
+  await expect(page.locator('.goal-call code')).toBeVisible();
+  expect(await page.evaluate(() => (window as any).__arena.match.round)).toBe(0);
+  await page.getByRole('button', { name: 'NEXT ROUND' }).click();
   await expect.poll(() => page.evaluate(() => (window as any).__arena.match.round)).toBe(1);
   await shoot(page, false);
   await expect(page.getByRole('status')).toContainText('WRONG OUTPUT');
@@ -89,6 +93,9 @@ test('real controls, physics goals, all ten rounds, mastery, results and replay'
     }
     if (round === 8) expect(await page.evaluate(() => (window as any).__arena.obstacles.some((o: any) => o.kind === 'disappearing-wall'))).toBe(true);
     await shoot(page);
+    await expect(page.getByRole('button', { name: 'NEXT ROUND' })).toBeVisible();
+    expect(await page.evaluate(() => (window as any).__arena.match.round)).toBe(round);
+    await page.getByRole('button', { name: 'NEXT ROUND' }).click();
     await expect.poll(() => page.evaluate(() => (window as any).__arena.match.round)).toBe(round + 1);
   }
   await shoot(page); await expect.poll(() => page.evaluate(() => (window as any).__arena.match.phase)).toBe(1);
@@ -109,8 +116,8 @@ test('real controls, physics goals, all ten rounds, mastery, results and replay'
   await waitForRoundReady(page);
   await page.getByRole('button', { name: 'Pause match', exact: true }).click();
   await page.getByRole('button', { name: 'BACK TO JOURNEY', exact: true }).click();
-  await expect(page.getByRole('button', { name: /Level 2:/ })).toHaveAttribute('aria-disabled', 'true');
-  await expect(page.locator('.node-play')).toContainText('REPLAY · BEST');
+  await expect(page.getByRole('button', { name: /Level 2:/ })).toHaveAttribute('aria-disabled', 'false');
+  await expect(page.getByRole('button', { name: /Level 1:/ }).locator('.node-play')).toContainText('REPLAY · BEST');
   expect(errors).toEqual([]);
 });
 
@@ -157,6 +164,9 @@ test('two touch pointers can steer and boost together, then release cleanly', as
 test('larger octagonal field follows the car, keeps UI fixed, and rolls the ball', async ({ page }) => {
   await enterArena(page);
   const codeBefore = (await page.locator('.code-panel').boundingBox())!;
+  expect(codeBefore.x).toBeLessThan(120);
+  expect(codeBefore.y).toBeLessThan(80);
+  expect(codeBefore.width).toBeLessThanOrEqual(280);
   await page.keyboard.down('d'); await page.keyboard.down('Shift');
   await expect.poll(() => page.evaluate(() => (window as any).__arena.player.x)).toBeGreaterThan(360);
   await page.keyboard.up('d'); await page.keyboard.up('Shift');

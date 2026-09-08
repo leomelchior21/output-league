@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { Match, potentialXP } from '../src/game/match';
-import { makeRounds, challengeBank } from '../src/data/challenges';
+import { makeRounds, makeLevelRounds, challengeBank } from '../src/data/challenges';
 import { pythonLevels } from '../src/data/levels';
 import { contain, collideCircles, collideWall, collidePost, crossedGoal, APOTHEM, SIDES, RADIUS, GOAL_SIDES, GOAL_HALF_WIDTH } from '../src/game/physics';
 import { advanceCamera, followTarget } from '../src/game/followCamera';
@@ -48,7 +48,7 @@ describe('the PRINT learning loop', () => {
       if (i < 9) { perfect.nextRound(); guessing.nextRound(); }
     }
     expect(perfect.stars).toBe(3); expect(guessing.stars).toBe(1);
-    expect(perfect.breakdown.special).toBe(40); expect(pythonLevels.slice(1).every(l => l.locked)).toBe(true);
+    expect(perfect.breakdown.special).toBe(40); expect(pythonLevels.slice(1, 4).every(l => !l.locked)).toBe(true); expect(pythonLevels.slice(4).every(l => l.locked)).toBe(true);
     const b = perfect.breakdown; expect(perfect.score).toBe(b.roundXP + b.accuracy + b.cleanShot + b.streak + b.special + b.mastery - b.penalties);
   });
   it('caps repeated wrong-goal deductions at the remaining score', () => {
@@ -78,6 +78,43 @@ describe('the PRINT learning loop', () => {
     expect(surfaces.ice.grip).toBeLessThan(surfaces.rain.grip); expect(surfaces.ice.drag).toBeLessThan(surfaces.alpine.drag);
     expect(tricksterPhase(5.9)).toBe('quiet'); expect(tricksterPhase(6.5)).toBe('warning');
     expect(tricksterPhase(7.1)).toBe('active'); expect(tricksterPhase(10)).toBe('quiet'); expect(tricksterPhase(16)).toBe('quiet');
+  });
+});
+
+describe('the expanded Python journey', () => {
+  it('defines ten curated, valid rounds for Levels 2 through 4', () => {
+    const expected = [
+      ['6', 'Luna', '20', '3', '9', 'Nova', 'score', 'PY', '13', 'Ada'],
+      ['7', '12', '5', '4', '3', '3', '6', '2', '2', '9'],
+      ['8', '6', '12', '5.0', '8', '7', '16', '12', '14', '9'],
+    ];
+    for (const levelId of [2, 3, 4]) {
+      const rounds = makeLevelRounds(levelId);
+      expect(rounds).toHaveLength(10);
+      expect(rounds.map(round => round.outputs[0])).toEqual(expected[levelId - 2]);
+      for (const round of rounds) {
+        expect(round.choices).toHaveLength(round.goals);
+        expect(new Set(round.choices).size).toBe(round.goals);
+        round.outputs.forEach(output => expect(round.choices).toContain(output));
+        expect(round.graceSeconds).toBeGreaterThanOrEqual(4);
+      }
+      expect(rounds[7].orbit).toBe(true);
+      expect(rounds[9].mastery).toBe(true);
+      expect(rounds.slice(4).every(round => round.obstacles.length >= 1)).toBe(true);
+      expect(rounds.slice(5).every(round => round.obstacles.length >= 2)).toBe(true);
+    }
+  });
+  it('keeps Level 1 generated behavior and gives new concepts their configured grace', () => {
+    expect(makeLevelRounds(1, () => .1)).toEqual(makeRounds(() => .1));
+    const level2 = new Match(makeLevelRounds(2));
+    level2.tick(6); expect(level2.xp).toBe(300);
+    level2.tick(1); expect(level2.xp).toBe(293);
+    level2.tick(99999); expect(level2.xp).toBe(60); expect(level2.levelComplete).toBe(false);
+  });
+  it('awards the mastery bonus on the single-output operations mastery round', () => {
+    const match = new Match(makeLevelRounds(4)); match.round = 9;
+    expect(match.goal('9', false).kind).toBe('complete');
+    expect(match.breakdown.mastery).toBe(100);
   });
 });
 

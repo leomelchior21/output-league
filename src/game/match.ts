@@ -1,7 +1,7 @@
 import { makeRounds, type Challenge } from '../data/challenges';
 export interface Breakdown { roundXP: number; accuracy: number; cleanShot: number; streak: number; special: number; mastery: number; penalties: number }
 export const KICKS_PER_ROUND = 3;
-export interface MatchSnapshot { round: number; score: number; streak: number; potentialXP: number; phase: number; wrongGoalsThisRound: number; kickCount: number; kicksRemaining: number; roundStartTime: number; challenge: Challenge; targetOutput: string; specialMode: boolean; levelComplete: boolean; totalWrong: number; cleanShots: number; breakdown: Breakdown; stars: number }
+export interface MatchSnapshot { round: number; score: number; streak: number; potentialXP: number; phase: number; wrongGoalsThisRound: number; kickCount: number; kicksRemaining: number; roundStartTime: number; challenge: Challenge; targetOutput: string; specialMode: boolean; levelComplete: boolean; totalWrong: number; totalOutputs: number; cleanShots: number; breakdown: Breakdown; stars: number }
 export function potentialXP(elapsed: number, tutorial = false) { return Math.max(60, Math.round(300 - Math.max(0, elapsed - (tutorial ? 8 : 3)) * (tutorial ? 4 : 7))); }
 export class Match {
   rounds: Challenge[];
@@ -10,7 +10,10 @@ export class Match {
   constructor(rounds = makeRounds()) { this.rounds = rounds; }
   get challenge() { return this.rounds[this.round]; }
   get targetOutput() { return this.challenge.outputs[this.phase]; }
-  get xp() { return potentialXP(this.elapsed, this.round === 0); }
+  get xp() {
+    const grace = this.challenge.graceSeconds;
+    return grace === undefined ? potentialXP(this.elapsed, this.round === 0) : Math.max(60, Math.round(300 - Math.max(0, this.elapsed - grace) * 7));
+  }
   tick(seconds: number) { if (!this.levelComplete) this.elapsed += seconds; }
   goal(output: string, clean: boolean): { kind: 'wrong' | 'phase' | 'correct' | 'complete'; earned: number } {
     if (this.levelComplete) return { kind: 'complete', earned: 0 };
@@ -26,7 +29,7 @@ export class Match {
     if (this.wrongGoalsThisRound === 0) this.streak++;
     const streak = Math.min(this.streak, 5) * 15;
     const special = this.challenge.orbit ? 40 : 0;
-    const mastery = this.challenge.outputs.length > 1 ? 100 : 0;
+    const mastery = this.challenge.mastery || this.challenge.outputs.length > 1 ? 100 : 0;
     const cleanShot = clean ? 20 : 0;
     if (clean) this.cleanShots++;
     const earned = this.xp + accuracy + streak + special + mastery + cleanShot;
@@ -44,5 +47,5 @@ export class Match {
     const rating = accuracy * .5 + Math.min(1, this.score / 3600) * .35 + Math.min(1, this.cleanShots / 7) * .15;
     return rating >= .81 && this.totalWrong <= 2 ? 3 : rating >= .57 && this.totalWrong <= 7 ? 2 : 1;
   }
-  snapshot(): MatchSnapshot { return { round: this.round + 1, score: this.score, streak: this.streak, potentialXP: this.xp, phase: this.phase, wrongGoalsThisRound: this.wrongGoalsThisRound, kickCount: this.kickCount, kicksRemaining: this.kicksRemaining, roundStartTime: this.roundStartTime, challenge: this.challenge, targetOutput: this.targetOutput, specialMode: !!this.challenge.orbit, levelComplete: this.levelComplete, totalWrong: this.totalWrong, cleanShots: this.cleanShots, breakdown: { ...this.breakdown }, stars: this.stars }; }
+  snapshot(): MatchSnapshot { return { round: this.round + 1, score: this.score, streak: this.streak, potentialXP: this.xp, phase: this.phase, wrongGoalsThisRound: this.wrongGoalsThisRound, kickCount: this.kickCount, kicksRemaining: this.kicksRemaining, roundStartTime: this.roundStartTime, challenge: this.challenge, targetOutput: this.targetOutput, specialMode: !!this.challenge.orbit, levelComplete: this.levelComplete, totalWrong: this.totalWrong, totalOutputs: this.rounds.reduce((total, round) => total + round.outputs.length, 0), cleanShots: this.cleanShots, breakdown: { ...this.breakdown }, stars: this.stars }; }
 }
