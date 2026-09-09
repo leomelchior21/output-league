@@ -13,7 +13,8 @@ export default function Controls({ controls, audio, kicksRemaining, kickHidden =
     controls.x = x / radius; controls.y = y / radius; setKnob({ x, y });
   };
   const reset = () => { pointer.current = null; controls.x = 0; controls.y = 0; setKnob({ x: 0, y: 0 }); };
-  return <div className="controls-layer">
+  const suspendPointerDrive = () => { if (controls.pointer) controls.pointer.active = false; };
+  return <div className="controls-layer" onPointerEnter={suspendPointerDrive}>
     <div className="joystick-wrap"><div className="joystick" role="group" aria-label="Analog steering joystick. Drag to steer. Keyboard: WASD or arrow keys." onPointerDown={e => { if (pointer.current !== null) return; audio.unlock(); pointer.current = e.pointerId; e.currentTarget.setPointerCapture(e.pointerId); move(e); }} onPointerMove={move} onPointerUp={reset} onPointerCancel={reset} onLostPointerCapture={reset}>
       <i className="joystick-north" /><i className="joystick-east" /><i className="joystick-south" /><i className="joystick-west" /><div className="joystick-ring" /><div className="joystick-knob" style={{ transform: `translate(${knob.x}px, ${knob.y}px)` }} />
     </div><span className="control-hint">DRIVE <kbd>W A S D</kbd></span></div>

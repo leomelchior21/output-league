@@ -87,7 +87,7 @@ export class ArenaScene extends Phaser.Scene {
   private spawnAngle = 0;
   private spawnLift = 0;
 
-  constructor(options: ArenaOptions) { super('Arena'); this.options = options; this.controls = options.controls; this.match = new Match(makeLevelRounds(options.levelId ?? 1)); this.pitchStyle = selectPitch(this.controls.settings?.pitch ?? 'shuffle'); }
+  constructor(options: ArenaOptions) { super('Arena'); this.options = options; this.controls = options.controls; this.match = new Match(makeLevelRounds(options.levelId ?? 1, Math.random, options.language ?? 'python')); this.pitchStyle = selectPitch(this.controls.settings?.pitch ?? 'shuffle'); }
 
   create() {
     this.world = this.add.container(0, 0);
@@ -128,6 +128,7 @@ export class ArenaScene extends Phaser.Scene {
 
   private configureRound() {
     this.awaitingNext = false; this.pendingNext = false; this.controls.nextRoundRequested = false;
+    if (this.controls.pointer) this.controls.pointer.active = false;
     this.options.onAwaitingNext(false); this.options.onKickoffChange(true);
     this.goals.forEach(g => { g.art.frame.destroy(); g.art.label.destroy(); }); this.goals = [];
     const challenge = this.match.challenge;
@@ -229,7 +230,8 @@ export class ArenaScene extends Phaser.Scene {
       this.options.audio.play('wrong'); this.burst(this.ball.x, this.ball.y, 0xff7c86, 20);
     } else {
       const phase = outcome.kind === 'phase';
-      this.options.onFeedback({ text: phase ? 'FIRST OUTPUT COMPLETE ✓' : 'PYTHON EXECUTED ✓', kind: 'correct', id: this.elapsed, code, output: goal.output, detail: phase ? 'Now read the next line.' : `+${outcome.earned} XP${this.elapsed - this.lastKick < 3.2 ? ' · CLEAN SHOT' : ''}` });
+      const language = this.options.language === 'csharp' ? 'C#' : (this.options.language ?? 'python').toUpperCase();
+      this.options.onFeedback({ text: phase ? 'FIRST OUTPUT COMPLETE ✓' : `${language} EXECUTED ✓`, kind: 'correct', id: this.elapsed, code, output: goal.output, detail: phase ? 'Now read the next line.' : `+${outcome.earned} XP${this.elapsed - this.lastKick < 3.2 ? ' · CLEAN SHOT' : ''}` });
       this.atmosphere.cheer = 2.3;
       this.options.audio.play(outcome.kind === 'complete' ? 'complete' : 'goal'); this.burst(this.ball.x, this.ball.y, goal.color, 55);
       this.ripples.push({ x: goal.x, y: goal.y, age: 0, color: goal.color, size: 170 });
@@ -330,6 +332,10 @@ export class ArenaScene extends Phaser.Scene {
     const kx = Number(this.keyboard.D.isDown || this.keyboard.RIGHT.isDown) - Number(this.keyboard.A.isDown || this.keyboard.LEFT.isDown);
     const ky = Number(this.keyboard.S.isDown || this.keyboard.DOWN.isDown) - Number(this.keyboard.W.isDown || this.keyboard.UP.isDown);
     if (kx || ky) { const m = Math.hypot(kx, ky); x = kx / m; y = ky / m; }
+    else if (Math.hypot(x, y) <= .06) {
+      const pointer = this.pointerDriveVector();
+      if (pointer) { x = pointer.x; y = pointer.y; }
+    }
     const magnitude = Math.min(1, Math.hypot(x, y));
     if (magnitude > .06) {
       const difference = Phaser.Math.Angle.Wrap(Math.atan2(y, x) - this.facing);
@@ -491,6 +497,17 @@ export class ArenaScene extends Phaser.Scene {
     this.guidance.update(this.cameraState, this.player, this.ball, this.goals, this.facing, this.boostEnergy);
   }
 
+  private pointerDriveVector() {
+    const pointer = this.controls.pointer;
+    if (!pointer?.active) return undefined;
+    const target = this.cameras.main.getWorldPoint(pointer.x, pointer.y);
+    const dx = target.x - this.player.x, dy = target.y - this.player.y, distance = Math.hypot(dx, dy);
+    if (distance < .001) return { x: 0, y: 0, magnitude: 0, targetX: target.x, targetY: target.y };
+    const screenDistance = distance * this.cameraState.zoom;
+    const magnitude = Phaser.Math.Clamp((screenDistance - 42) / 210, 0, 1);
+    return { x: dx / distance * magnitude, y: dy / distance * magnitude, magnitude, targetX: target.x, targetY: target.y };
+  }
+
   private renderBodies(dt: number) {
     const moving = Math.hypot(this.player.vx, this.player.vy) > 40;
     const vibration = moving && !this.controls.reducedMotion ? Math.sin(this.elapsed * 45) * .007 : 0;
@@ -510,6 +527,13 @@ export class ArenaScene extends Phaser.Scene {
 
   private renderEffects(dt: number) {
     const g = this.groundFx, air = this.airFx; g.clear(); air.clear();
+    const pointer = this.pointerDriveVector();
+    if (pointer && pointer.magnitude > .01 && !this.controls.paused) {
+      const alpha = .18 + pointer.magnitude * .3, color = this.options.language === 'csharp' ? 0xc39cff : this.options.language === 'swift' ? 0xff9874 : 0x71dcff;
+      air.lineStyle(2, color, alpha).lineBetween(this.player.x, this.player.y, pointer.targetX, pointer.targetY);
+      air.lineStyle(3, color, .45 + pointer.magnitude * .35).strokeCircle(pointer.targetX, pointer.targetY, 13 + pointer.magnitude * 7);
+      air.fillStyle(color, .65).fillCircle(pointer.targetX, pointer.targetY, 3);
+    }
     const speed = Math.hypot(this.player.vx, this.player.vy);
     this.trailElapsed += dt;
     if (this.trailElapsed >= .025 && this.transition <= 0 && !this.match.levelComplete) {

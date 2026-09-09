@@ -30,8 +30,9 @@ test('launcher, locked content, journey, and settings fit iPad landscape', async
   await page.goto('/');
   await expect(page.locator('.boot-splash')).toHaveCount(0);
   await expect(page.getByAltText('OUTPUT LEAGUE. Code. Think. Score.')).toBeVisible();
-  await page.getByRole('button', { name: /C#.*COMING SOON/ }).click({ force: true });
-  await expect(page.getByRole('status')).toContainText('C# — COMING SOON');
+  await page.getByRole('button', { name: /C#.*CHOOSE JOURNEY/ }).click();
+  await expect(page.getByRole('button', { name: /C#.*READY TO PLAY/ })).toHaveAttribute('aria-pressed', 'true');
+  await page.getByRole('button', { name: /Python.*CHOOSE JOURNEY/ }).click();
   await page.getByRole('button', { name: 'Open settings' }).click();
   await page.getByRole('switch', { name: /Sound effects/ }).click();
   await expect(page.getByRole('switch', { name: /Sound effects/ })).toHaveAttribute('aria-checked', 'false');

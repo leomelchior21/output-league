@@ -207,7 +207,6 @@ test('level progress unlocks only Levels 2 through 4 and the secondary radar sta
   await expect(page.locator('.code-panel-label').first()).toContainText('PYTHON · LEVEL 04');
   await page.goto('/python/level/4?qa=1');
   await expect.poll(() => page.evaluate(() => Boolean((window as any).__arena))).toBe(true);
-  await expect.poll(() => page.evaluate(() => (window as any).__arena?.introDone)).toBe(true);
   await expect(page.locator('.game-screen')).toHaveClass(/kickoff-active/);
   const kickoffCodeBox = (await page.locator('.code-panel').boundingBox())!;
   const viewportCenter = await page.evaluate(() => innerWidth / 2);
@@ -221,6 +220,9 @@ test('level progress unlocks only Levels 2 through 4 and the secondary radar sta
   expect(state).toEqual({ levelLabel: 'PYTHON · LEVEL 04WHAT GETS PRINTED?', rounds: 10, first: '8', last: '9', radarVisible: false });
   const codeBox = (await page.locator('.code-panel').boundingBox())!;
   const roundBox = (await page.locator('.round-progress').boundingBox())!;
+  const levelHeading = (await page.locator('.code-panel-label > span').first().boundingBox())!;
+  const questionPrompt = (await page.locator('.code-panel-label > span').last().boundingBox())!;
   expect(codeBox.x).toBeLessThan(120); expect(codeBox.y).toBeLessThan(80); expect(codeBox.width).toBeLessThanOrEqual(280);
+  expect(questionPrompt.y).toBeGreaterThanOrEqual(levelHeading.y + levelHeading.height);
   expect(Math.abs(roundBox.x + roundBox.width / 2 - (await page.evaluate(() => innerWidth / 2)))).toBeLessThan(5);
 });

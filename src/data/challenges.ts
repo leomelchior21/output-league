@@ -1,4 +1,6 @@
 export type ObstacleKind = 'wall' | 'moving-wall' | 'bumper' | 'disappearing-wall' | 'rotating-arm' | 'speed-pad' | 'slow-zone' | 'orbiting-bumper' | 'pothole';
+import type { Language } from './levels';
+import { makeLanguageRounds } from './languageChallenges';
 export interface Challenge { id: string; category: string; code: string[]; outputs: string[]; choices: string[]; goals: 4 | 6; obstacles: ObstacleKind[]; bot?: boolean; orbit?: boolean; mastery?: boolean; graceSeconds?: number; lesson: string }
 export const challengeBank: Challenge[] = [
   { id: 'integer-8', category: 'INTEGER OUTPUT', code: ['print(8)'], outputs: ['8'], choices: ['8', '"8"', '0', 'ERROR'], goals: 4, obstacles: [], lesson: 'print() sends a value to the screen.' },
@@ -98,7 +100,8 @@ function cloneRounds(rounds: Challenge[]) {
   return rounds.map(round => ({ ...round, code: [...round.code], outputs: [...round.outputs], choices: [...round.choices], obstacles: [...round.obstacles] }));
 }
 
-export function makeLevelRounds(levelId: number, random = Math.random): Challenge[] {
+export function makeLevelRounds(levelId: number, random = Math.random, language: Language = 'python'): Challenge[] {
+  if (language !== 'python') return makeLanguageRounds(language, levelId, random);
   if (levelId === 1) return makeRounds(random);
   const source = levelId === 2 ? level2Rounds : levelId === 3 ? level3Rounds : levelId === 4 ? level4Rounds : undefined;
   if (!source) return makeRounds(random);

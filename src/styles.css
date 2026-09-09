@@ -32,6 +32,37 @@
 /* The code card is a compact, consistent instrument beside the driving controls. */
 @keyframes code-panel-glow{50%{border-color:#8ae8ff;box-shadow:0 0 0 1px #5edcff36,0 0 34px #28c9ff58,inset 0 1px #e5fbff2b}}
 @media(orientation:landscape){.game-screen .code-panel{position:fixed;left:clamp(16px,2.3vw,36px);right:auto;top:clamp(16px,2.3vh,26px);bottom:auto;width:clamp(220px,22.5vw,279px);min-height:0;margin:0;padding:7px 11px 9px;border-color:#66dcffcc;box-shadow:0 0 0 1px #3bcafc24,0 0 26px #28c9ff3d,inset 0 1px #d9f8ff22;animation:code-panel-glow 2.6s ease-in-out infinite;transition:left .42s ease,top .42s ease,transform .42s ease}.game-screen.kickoff-active .code-panel{left:50%;top:42px;transform:translateX(-50%)}.game-screen .code-panel-label{font-size:7px}.game-screen .code-line{gap:9px;margin-top:5px}.game-screen .code-line code{font-size:clamp(15px,1.4vw,18px);letter-spacing:-.35px}.game-screen .expanded-code .code-line{margin-top:3px}.game-screen .expanded-code .code-line code{font-size:13px}.game-screen .score-hud{grid-column:3}}
+
+/* Multi-language content packs share the arena while keeping a light visual identity. */
+.language-cards{grid-template-columns:repeat(3,1fr)}
+.launcher{width:clamp(420px,42vw,590px)}
+.language-card{min-width:0;padding:8px 4px}
+.language-card:not(.selected) .selected-check{opacity:0;transform:scale(.7)}
+.selected-check{transition:opacity .18s,transform .18s}
+.csharp-card{color:#cbb4f7}.swift-card{color:#ffb08f}
+.csharp-card .card-caption,.swift-card .card-caption{font-size:clamp(6px,.58vw,8px);letter-spacing:1px}
+.lang-csharp{--language-accent:#b68cff;--language-soft:#7a56bd}.lang-swift{--language-accent:#ff8a65;--language-soft:#d85d48}.lang-python{--language-accent:#65d8ff;--language-soft:#269ad3}
+.lang-csharp .language-card.selected{border-color:#c39cff;box-shadow:0 0 0 4px #8a4eff18,0 0 24px #9c6cff3d,inset 0 0 32px #8451df1c;background:linear-gradient(145deg,#392765df,#151d3feb)}
+.lang-swift .language-card.selected{border-color:#ff9a72;box-shadow:0 0 0 4px #ff6b3c16,0 0 24px #ff613d3d,inset 0 0 32px #e94d2d1c;background:linear-gradient(145deg,#653028df,#30182aeb)}
+.lang-csharp .selected-check{background:#c39cff}.lang-swift .selected-check{background:#ff9a72}
+.journey-screen.lang-csharp{background:radial-gradient(ellipse at 22% 43%,#502a7955,transparent 48%),linear-gradient(140deg,#222044,#0c152d 65%)}
+.journey-screen.lang-swift{background:radial-gradient(ellipse at 22% 43%,#8a3b2955,transparent 48%),linear-gradient(140deg,#35203b,#10172d 65%)}
+.lang-csharp .journey-language,.lang-csharp .title-dot,.lang-csharp .cyan-text{color:#c39cff}.lang-swift .journey-language,.lang-swift .title-dot,.lang-swift .cyan-text{color:#ff9a72}
+.lang-csharp .journey-path .active-path{stroke:#b68cff}.lang-swift .journey-path .active-path{stroke:#ff8a65}
+.lang-csharp .island-active .island-terminal{border-color:#c39cff;color:#cdb2ff;box-shadow:4px 5px 0 #35224f,0 0 18px #a26cff55,inset 0 0 22px #7040bd3d}
+.lang-swift .island-active .island-terminal{border-color:#ff946e;color:#ffab88;box-shadow:4px 5px 0 #51291f,0 0 18px #ff704f55,inset 0 0 22px #c84d333d}
+.lang-csharp .is-active .node-details{border-color:#a96ce855;box-shadow:0 4px 25px #aa56df15}.lang-swift .is-active .node-details{border-color:#e9785755;box-shadow:0 4px 25px #e95c3515}
+.lang-csharp .is-active .level-number,.lang-csharp .node-play{color:#cda9ff}.lang-swift .is-active .level-number,.lang-swift .node-play{color:#ffab8b}
+.island-terminal>span{max-width:137px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.coming-soon-label{font-size:7px;letter-spacing:1.2px;color:#71869e;margin-top:5px}
+.keyword{color:#c99cff}.variable{color:#e8f4ff}
+.lang-swift .keyword{color:#ff9b79}.lang-csharp .function{color:#e3b5ff}.lang-swift .function{color:#ffcf6b}
+.game-screen.lang-csharp .code-panel{border-color:#c39cffaa;box-shadow:0 0 0 1px #9b62e824,0 0 26px #9858e83d,inset 0 1px #f0ddff22}
+.game-screen.lang-swift .code-panel{border-color:#ff9874bb;box-shadow:0 0 0 1px #f16b4424,0 0 26px #e95a373d,inset 0 1px #ffe6dd22}
+@media(orientation:landscape){.game-screen .wide-code{width:clamp(310px,31vw,390px)}.game-screen .wide-code .code-line code{font-size:clamp(13px,1.25vw,17px)}.game-screen .wide-code.expanded-code .code-line code{font-size:clamp(11px,1.05vw,14px)}}
+@media(max-width:1100px){.launcher{width:44vw;min-width:420px}.language-cards{gap:9px}.language-card strong{font-size:20px}.language-card>svg:not(.card-lock){width:48px;height:48px}.game-screen .wide-code{width:350px}}
+@media(max-height:720px) and (orientation:landscape){.launcher{width:43vw;min-width:410px}.language-card{height:128px}.language-card>svg:not(.card-lock){width:41px;height:41px}.language-card strong{font-size:18px}.play-button{margin-top:13px}}
+@media(orientation:portrait){.launcher{width:min(470px,92vw)}.language-cards{gap:7px}.language-card{height:140px}.language-card>svg:not(.card-lock){width:43px;height:43px}.language-card strong{font-size:18px}.card-caption{white-space:normal;min-height:18px}.game-screen .wide-code{width:min(390px,calc(100vw - 30px))}}
 .round-progress{position:absolute;z-index:6;left:50%;top:10px;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;pointer-events:none}.round-progress .round-label{margin:0}.round-progress .round-dots{position:static;left:auto;top:auto;transform:none;margin-top:6px}.special-badge{z-index:6}
 .spectacle-awaiting .goal-halo{animation:none;opacity:.52}.spectacle-awaiting .goal-call{animation:none;transform:translateX(-50%)}.next-round-button{pointer-events:auto;width:min(390px,70vw);min-height:68px;margin:24px auto 0;font-size:18px}.spectacle-awaiting .goal-call code{display:block;width:max-content;max-width:90%;margin-inline:auto}
 
@@ -39,3 +70,12 @@
 /* The camera-following arena supplies its own fixed radar below the action. */
 .game-screen .field-caption{display:none}.game-screen .game-feedback{bottom:clamp(195px,25vh,255px)}
 .arena-intro-active .round-progress{visibility:hidden}
+
+/* Stack the prompt beneath a stronger language/level heading. */
+.game-screen .code-panel-label{flex-direction:column;justify-content:flex-start;align-items:flex-start;gap:2px;font-size:11px;font-weight:800;color:#8ad8f5}
+.game-screen .code-panel-label>span:last-child{font-size:8px;font-weight:600;color:#7e99b4}
+@media(orientation:landscape){.game-screen .code-panel-label{font-size:9px}}
+
+/* The code prompt sizes itself to its longest line; pointer distance controls desktop throttle. */
+@media(orientation:landscape){.game-screen .code-panel,.game-screen .wide-code{width:max-content;min-width:210px;max-width:min(48vw,560px)}.game-screen .wide-code .code-line code{font-size:clamp(13px,1.25vw,17px)}.game-screen .wide-code.expanded-code .code-line code{font-size:clamp(11px,1.05vw,14px)}}
+@media(hover:hover) and (pointer:fine){.phaser-host canvas{cursor:crosshair}.joystick-wrap .control-hint:after{content:'  ·  MOUSE';color:#87cce5}}

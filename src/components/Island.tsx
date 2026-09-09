@@ -17,6 +17,6 @@ export default function Island({ level }: { level: Level }) {
       <path d="m43 99 10 4v24l-4 10-6-6Z" fill="#6cd7f5" opacity={active ? '.6' : '.18'} />
       <path d="m166 131 10-3v15l-5 14-5-4Z" fill="#6cd7f5" opacity={active ? '.45' : '.12'} />
     </svg>
-    <div className="island-terminal"><ConceptIcon name={level.icon} size={active ? 36 : 31} />{active && <span>print<span className="string">("HELLO")</span></span>}</div>
+    <div className="island-terminal"><ConceptIcon name={level.icon} language={level.language} size={active ? 36 : 31} />{active && <span>{level.concept}</span>}</div>
   </div>;
 }
