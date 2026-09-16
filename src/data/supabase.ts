@@ -1,7 +1,8 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Language } from './levels';
 
-const PROJECT_URL = (import.meta.env.VITE_SUPABASE_URL as string | undefined)?.trim() ?? '';
+const PROJECT_URL = (import.meta.env.VITE_SUPABASE_URL as string | undefined)?.trim()
+  || 'https://imodobxbarcsjylvitxt.supabase.co';
 const PUBLISHABLE_KEY = (import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string | undefined)?.trim()
   || 'sb_publishable_jkHrLZkNR4Zh3XtHEgpTMA_JnMMpG6w';
 const SESSION_KEY = 'output-league:student-session';
