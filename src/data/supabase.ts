@@ -17,7 +17,7 @@ const client = isSupabaseConfigured ? createClient(PROJECT_URL, PUBLISHABLE_KEY,
 }) : null;
 
 export interface StudentProfile {
-  id: number;
+  id: string;
   username: string;
   fullName: string;
   grade: 7 | 8 | 9;
@@ -63,7 +63,7 @@ export function languageForGrade(grade: number): Language {
 function parseStudent(raw: Record<string, unknown>): StudentProfile {
   const grade = Number(raw.grade) as 7 | 8 | 9;
   return {
-    id: Number(raw.id), username: String(raw.username), fullName: String(raw.full_name), grade,
+    id: String(raw.id), username: String(raw.username), fullName: String(raw.full_name), grade,
     className: String(raw.class_name), groupName: raw.group_name ? String(raw.group_name) : null,
     language: languageForGrade(grade),
   };

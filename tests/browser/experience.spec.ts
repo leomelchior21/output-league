@@ -207,7 +207,7 @@ test('level progress unlocks only Levels 2 through 4 and the secondary radar sta
     localStorage.setItem('output-league:settings', JSON.stringify({ reducedMotion: true, sound: false }));
     localStorage.setItem('output-league:progress', JSON.stringify({ bestScore: 900, stars: 2, complete: true }));
   });
-  await page.goto('/python');
+  await page.goto('/python?qa=1');
   await expect(page.getByRole('button', { name: /Level 2:/ })).toHaveAttribute('aria-disabled', 'false');
   await expect(page.getByRole('button', { name: /Level 3:/ })).toHaveAttribute('aria-disabled', 'true');
   await page.evaluate(() => localStorage.setItem('output-league:level-progress', JSON.stringify({

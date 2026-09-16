@@ -25,7 +25,8 @@ function parseRoute(pathname: string): RouteInfo | null {
 function readRoute(): Route {
   const info = parseRoute(location.pathname);
   if (!info) return '/';
-  if (isSupabaseConfigured) {
+  const qaBypass = import.meta.env.DEV && new URLSearchParams(location.search).has('qa');
+  if (isSupabaseConfigured && !qaBypass) {
     const session = getStudentSession();
     if (!session) return '/';
     if (info.language !== session.language) return `/${session.language}`;

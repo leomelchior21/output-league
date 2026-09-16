@@ -15,8 +15,8 @@ test('three grade-linked language cards and the student login fit supported iPad
   await expect(page.getByPlaceholder('firstnamelastname')).toBeVisible();
   await expect(page.getByText(/Bruno Soares/)).toBeVisible();
   for (const language of [{ route: 'csharp', heading: 'Your C# journey' }, { route: 'swift', heading: 'Your Swift journey' }]) {
-    await page.goto(`/${language.route}`);
-    await expect(page).toHaveURL(new RegExp(`/${language.route}$`));
+    await page.goto(`/${language.route}?qa=1`);
+    await expect(page).toHaveURL(new RegExp(`/${language.route}\\?qa=1$`));
     await expect(page.getByRole('heading', { name: `${language.heading}.` })).toBeVisible();
     await expect(page.locator('.level-node')).toHaveCount(8);
     await expect(page.locator('.coming-soon-label')).toHaveCount(4);
@@ -26,9 +26,9 @@ test('three grade-linked language cards and the student login fit supported iPad
 test('C# and Swift progress stay independent', async ({ page }) => {
   await page.goto('/');
   await page.evaluate(() => localStorage.setItem('output-league:csharp:level-progress', JSON.stringify({ 1: { bestScore: 800, stars: 2, complete: true } })));
-  await page.goto('/csharp');
+  await page.goto('/csharp?qa=1');
   await expect(page.getByRole('button', { name: /Level 2:/ })).toHaveAttribute('aria-disabled', 'false');
-  await page.goto('/swift');
+  await page.goto('/swift?qa=1');
   await expect(page.getByRole('button', { name: /Level 2:/ })).toHaveAttribute('aria-disabled', 'true');
 });
 

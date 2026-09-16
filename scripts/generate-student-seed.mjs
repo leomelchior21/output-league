@@ -14,7 +14,7 @@ const rows = lines.map(line => {
 });
 
 const sql = `-- Generated from supabase/students_supabase.csv. Do not edit student rows here by hand.\n` +
-  `insert into public.students (username, full_name, grade, class_name, group_name)\nvalues\n${rows.join(',\n')}\n` +
+  `insert into public.output_league_students (username, full_name, grade, class_name, group_name)\nvalues\n${rows.join(',\n')}\n` +
   `on conflict (username) do update set\n  full_name = excluded.full_name,\n  grade = excluded.grade,\n  class_name = excluded.class_name,\n  group_name = excluded.group_name;\n`;
 
 writeFileSync(destination, sql, 'utf8');

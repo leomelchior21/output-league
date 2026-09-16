@@ -37,8 +37,8 @@ test('launcher, locked content, journey, and settings fit iPad landscape', async
   await page.getByRole('switch', { name: /Sound effects/ }).click();
   await expect(page.getByRole('switch', { name: /Sound effects/ })).toHaveAttribute('aria-checked', 'false');
   await page.getByRole('button', { name: 'BACK TO IT' }).click();
-  await page.goto('/python');
-  await expect(page).toHaveURL(/\/python$/);
+  await page.goto('/python?qa=1');
+  await expect(page).toHaveURL(/\/python\?qa=1$/);
   for (const size of [{width:1024,height:768},{width:1180,height:820},{width:1194,height:834}]) {
     await page.setViewportSize(size);
     const nodes = await page.locator('.level-node').evaluateAll(elements => elements.map(element => { const r = element.getBoundingClientRect(); return r.width > 0 && r.height > 0 && r.x >= 0 && r.y >= 0 && r.right <= innerWidth && r.bottom <= innerHeight; }));
@@ -47,7 +47,7 @@ test('launcher, locked content, journey, and settings fit iPad landscape', async
   }
   await page.getByRole('button', { name: /Level 2:/ }).dispatchEvent('click');
   await expect(page.getByRole('status')).toContainText('SIMPLE VARIABLES — COMING SOON');
-  await expect(page).toHaveURL(/\/python$/);
+  await expect(page).toHaveURL(/\/python\?qa=1$/);
   await page.screenshot({ path: `test-results/journey-${testInfo.project.name}.png` });
   await page.getByRole('button', { name: /Level 1:/ }).click();
   await page.getByRole('button', { name: 'PLAY MATCH' }).click();

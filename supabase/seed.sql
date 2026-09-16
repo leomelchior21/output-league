@@ -1,5 +1,5 @@
 -- Generated from supabase/students_supabase.csv. Do not edit student rows here by hand.
-insert into public.students (username, full_name, grade, class_name, group_name)
+insert into public.output_league_students (username, full_name, grade, class_name, group_name)
 values
   ('anandiguastelli', 'Anandi Ricci Rodrigues Guastelli', 7, '7A', 'amarelo'),
   ('brunosoares', 'Bruno Sayeg Soares', 7, '7A', 'branco'),

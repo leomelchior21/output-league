@@ -23,9 +23,9 @@ The production output is `dist/`. A static host should rewrite navigation reques
 
 ## Supabase setup
 
-1. Create or open the Supabase project, then run `supabase/migrations/202609160001_student_progress.sql` in the SQL editor.
-2. Run `supabase/seed.sql` to import the 276 supplied students. The source snapshot is `supabase/students_supabase.csv`; regenerate the SQL after updating it with `npm run seed:students`.
-3. Copy `.env.example` to `.env.local` and replace `VITE_SUPABASE_URL` with the Project URL from Supabase’s Connect dialog. The supplied publishable key is already present.
+1. Authenticate and link the configured project with `npx supabase login` and `npx supabase link --project-ref imodobxbarcsjylvitxt`.
+2. Apply the migration and import the 276 supplied students with `npx supabase db push --include-seed`. The source snapshot is `supabase/students_supabase.csv`; regenerate the seed after updating it with `npm run seed:students`.
+3. Copy `.env.example` to `.env.local` for local development. The deployed project URL and publishable key are already configured as safe frontend fallbacks.
 4. Restart Vite after changing environment values.
 
 The browser has no direct table permissions. Login, settings, progress, and leaderboard access use narrowly granted database functions; student sessions are random, hashed, and expire after 30 days. Because the requested login has no password, a classmate who knows another student’s username and grade can still impersonate them. Add a per-student PIN or Supabase Auth before treating the scores as tamper-proof.
