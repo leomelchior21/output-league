@@ -144,6 +144,23 @@ test('portal steals cannot score in fixed or orbit goals, and player contact res
   await page.screenshot({ path: `test-results/portal-steal-${testInfo.project.name}.png` });
 });
 
+test('a ### jackpot arms a shockwave and explodes the active portal rover', async ({ page }) => {
+  await page.addInitScript(() => { localStorage.setItem('output-league:tutorial', '1'); localStorage.setItem('output-league:settings', JSON.stringify({ pitch: 'alpine', reducedMotion: true, sound: false })); });
+  await page.goto('/python/level/1?qa=1');
+  await expect.poll(() => page.evaluate(() => (window as any).__arena?.introDone)).toBe(true);
+  await page.evaluate(() => {
+    const scene = (window as any).__arena;
+    scene.match.round = 4; scene.configureRound(); scene.countdown = 0; scene.roundZoom = 0; scene.spawnElapsed = 1;
+    scene.botClock = 7; scene.stepBot(0); scene.options.onKickoffChange(false); scene.options.onSnapshot(scene.match.snapshot());
+    Math.random = () => 0;
+  });
+  await page.getByRole('button', { name: 'Roll for a shockwave' }).click();
+  await expect(page.getByRole('button', { name: 'Shockwave armed' })).toBeVisible();
+  await expect(page.getByRole('status')).toContainText('PORTAL ROVER POPPED!');
+  const result = await page.evaluate(() => { const scene = (window as any).__arena; return { phase: scene.botPhase, carrying: scene.botCarrying, protected: scene.botBallProtected, waves: scene.shockwaves.length, visible: scene.botView.view.visible }; });
+  expect(result).toEqual({ phase: 'quiet', carrying: false, protected: false, waves: 1, visible: false });
+});
+
 test('round zoom and countdown finish before the ball drops, and kicks stay limited', async ({ page }) => {
   await page.addInitScript(() => { localStorage.setItem('output-league:tutorial', '1'); localStorage.setItem('output-league:settings', JSON.stringify({ sound: false })); });
   await page.goto('/python/level/1?qa=1');

@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 
-test('three language cards fit supported iPad landscape sizes and launch their journeys', async ({ page }) => {
+test('three grade-linked language cards and the student login fit supported iPad landscape sizes', async ({ page }) => {
   await page.goto('/');
   await expect(page.locator('.boot-splash')).toHaveCount(0);
   for (const size of [{ width: 1024, height: 768 }, { width: 1180, height: 820 }, { width: 1194, height: 834 }]) {
@@ -12,10 +12,10 @@ test('three language cards fit supported iPad landscape sizes and launch their j
     expect(cards).toEqual([true, true, true]);
     expect(await page.evaluate(() => document.documentElement.scrollHeight <= innerHeight)).toBe(true);
   }
-  for (const language of [{ name: /C#.*CHOOSE JOURNEY/, route: 'csharp', heading: 'Your C# journey' }, { name: /Swift.*CHOOSE JOURNEY/, route: 'swift', heading: 'Your Swift journey' }]) {
-    await page.goto('/');
-    await page.getByRole('button', { name: language.name }).click();
-    await page.getByRole('button', { name: 'PLAY', exact: true }).click();
+  await expect(page.getByPlaceholder('firstnamelastname')).toBeVisible();
+  await expect(page.getByText(/Bruno Soares/)).toBeVisible();
+  for (const language of [{ route: 'csharp', heading: 'Your C# journey' }, { route: 'swift', heading: 'Your Swift journey' }]) {
+    await page.goto(`/${language.route}`);
     await expect(page).toHaveURL(new RegExp(`/${language.route}$`));
     await expect(page.getByRole('heading', { name: `${language.heading}.` })).toBeVisible();
     await expect(page.locator('.level-node')).toHaveCount(8);

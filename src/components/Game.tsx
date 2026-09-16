@@ -13,7 +13,7 @@ import { languages, type Language } from '../data/levels';
 import { makeLevelRounds } from '../data/challenges';
 import { HighlightedCode, isOutputStatement } from './HighlightedCode';
 
-export default function Game({ language, levelId, onJourney, settings, onSettingsChange, entranceReady }: { language: Language; levelId: number; onJourney: () => void; settings: SettingsValue; onSettingsChange: (s: SettingsValue) => void; entranceReady: boolean }) {
+export default function Game({ language, levelId, onJourney, onNextLevel, settings, onSettingsChange, entranceReady }: { language: Language; levelId: number; onJourney: () => void; onNextLevel?: () => void; settings: SettingsValue; onSettingsChange: (s: SettingsValue) => void; entranceReady: boolean }) {
   const pack = languages[language];
   const level = pack.levels[levelId - 1];
   const host = useRef<HTMLDivElement>(null);
@@ -70,13 +70,13 @@ export default function Game({ language, levelId, onJourney, settings, onSetting
     <div className="round-progress"><span className="round-label">ROUND <b>{String(snapshot.round).padStart(2, '0')}</b> / 10</span><div className="round-dots" aria-label={`Round ${snapshot.round} of 10`}>{Array.from({ length: 10 }, (_, i) => <span key={i} className={i < snapshot.round - 1 ? 'done' : i === snapshot.round - 1 ? 'current' : ''} />)}</div></div>
     {snapshot.challenge.orbit && <div className="special-badge">ORBIT MODE <span>+40 XP</span></div>}
     {feedback && !results && !recap && <div className={`game-feedback ${feedback.kind}`} role="status"><strong>{feedback.text}</strong><span>{feedback.detail}</span></div>}
-    <Controls controls={controls.current} audio={audio.current} kicksRemaining={snapshot.kicksRemaining} kickHidden={snapshot.challenge.orbit} />
+    <Controls key={`${snapshot.round}-${snapshot.challenge.id}`} controls={controls.current} audio={audio.current} kicksRemaining={snapshot.kicksRemaining} kickHidden={snapshot.challenge.orbit} shockwaveEnabled={!!snapshot.challenge.bot} />
     <span className="field-caption">READ. THINK. <b>SCORE.</b></span>
     {!ready && <div className="loading-screen"><div className="loading-mark"><Terminal size={35} /></div><strong>{loadError ? 'THE ARENA COULDN’T LOAD' : 'PREPARING YOUR ARENA'}</strong>{loadError ? <button className="primary-button" onClick={replay}><RotateCcw /> TRY AGAIN</button> : <span>Warming up the engines…</span>}<button className="text-button" onClick={onJourney}>BACK TO JOURNEY</button></div>}
     {ready && tutorial && <Modal label="How to play" onClose={start} className="tutorial-modal"><span className="eyebrow">YOUR FIRST LINE. YOUR FIRST GOAL.</span><h2>READ THE CODE.<br /><span className="cyan-text">SCORE THE OUTPUT.</span></h2><p><code>{language === 'csharp' ? 'Console.WriteLine()' : 'print()'}</code> shows a value on screen. Text loses its surrounding quotes; numbers stay numbers. Try this example:</p><CodeDemo language={language} code={tutorialExample} output={['HI!']} /><div className="tutorial-steps"><span><b>01</b> READ</span><ChevronRight size={17} /><span><b>02</b> DRIVE</span><ChevronRight size={17} /><span><b>03</b> SCORE</span></div><p className="tutorial-reassurance">Drive with the joystick or WASD. Hold BOOST for speed.<br />Tap KICK / Space near the ball, toward the matching goal.</p><button className="primary-button" onClick={start}><Play size={21} fill="currentColor" /> LET’S DRIVE</button><span className="keyboard-note">No countdown. Wrong goals give you another shot.</span></Modal>}
     {paused && !tutorial && !results && !showSettings && <Modal label="Match paused" onClose={() => setPaused(false)} className="pause-modal"><span className="eyebrow">TAKE A BREATHER</span><h2>Game paused.</h2><p className="muted">Your car and XP are right where you left them.</p><button className="primary-button" onClick={() => setPaused(false)}><Play size={19} fill="currentColor" /> RESUME MATCH</button><button className="secondary-button" onClick={() => setShowSettings(true)}><Settings2 size={19} /> SETTINGS</button><button className="text-button" onClick={onJourney}><ArrowLeft size={18} /> BACK TO JOURNEY</button><small className="muted">Leaving ends this match. Your best score stays saved.</small></Modal>}
     {showSettings && <Settings value={settings} onChange={onSettingsChange} onClose={() => setShowSettings(false)} />}
     {recap && <LearningCard language={language} levelId={levelId} code={snapshot.challenge.code} output={snapshot.challenge.outputs} onContinue={() => { setRecap(false); setResults(true); }} />}
-    {results && <Results language={language} levelId={levelId} state={snapshot} replay={replay} journey={onJourney} />}
+    {results && <Results language={language} levelId={levelId} state={snapshot} replay={replay} journey={onJourney} next={onNextLevel} />}
   </main>;
 }

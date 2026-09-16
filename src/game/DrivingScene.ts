@@ -16,6 +16,7 @@ interface Goal { index: number; output: string; x: number; y: number; nx: number
 interface Spark { x: number; y: number; vx: number; vy: number; life: number; color: number }
 interface Trail { x: number; y: number; facing: number; age: number; boost: boolean; skid: number }
 interface Ripple { x: number; y: number; age: number; color: number; size: number }
+interface Shockwave { x: number; y: number; age: number }
 const ORBIT_RADIUS = 475;
 const ROUND_ZOOM_TIME = 1.45;
 const COUNTDOWN_TIME = 3;
@@ -46,6 +47,7 @@ export class ArenaScene extends Phaser.Scene {
   private botCarryElapsed = 0;
   private botBallProtected = false;
   private botPickupBlockedUntil = 0;
+  private shockwaveArmed = false;
   private pitCooldown = 0;
   private world!: Phaser.GameObjects.Container;
   private pitch!: Phaser.GameObjects.Image;
@@ -63,6 +65,7 @@ export class ArenaScene extends Phaser.Scene {
   private trails: Trail[] = [];
   private ballTrail: { x: number; y: number; age: number }[] = [];
   private ripples: Ripple[] = [];
+  private shockwaves: Shockwave[] = [];
   private elapsed = 0;
   private accumulator = 0;
   private hudElapsed = 0;
@@ -128,6 +131,7 @@ export class ArenaScene extends Phaser.Scene {
 
   private configureRound() {
     this.awaitingNext = false; this.pendingNext = false; this.controls.nextRoundRequested = false;
+    this.controls.shockwaveRequested = false; this.shockwaveArmed = false;
     if (this.controls.pointer) this.controls.pointer.active = false;
     this.options.onAwaitingNext(false); this.options.onKickoffChange(true);
     this.goals.forEach(g => { g.art.frame.destroy(); g.art.label.destroy(); }); this.goals = [];
@@ -268,6 +272,11 @@ export class ArenaScene extends Phaser.Scene {
     }
     this.elapsed += dt;
     this.portal.age += wallDt;
+    if (this.controls.shockwaveRequested) {
+      this.controls.shockwaveRequested = false; this.shockwaveArmed = true;
+      if (this.bot && this.botPhase === 'active') this.explodeBot();
+      else this.options.onFeedback({ text: 'SHOCKWAVE ARMED', kind: 'info', detail: 'Jackpot! The next portal rover is in for a surprise.' });
+    }
     if (this.roundZoom > 0) {
       this.roundZoom = Math.max(0, this.roundZoom - wallDt);
       const t = Phaser.Math.Clamp(1 - this.roundZoom / ROUND_ZOOM_TIME, 0, 1), ease = t * t * (3 - 2 * t);
@@ -445,6 +454,7 @@ export class ArenaScene extends Phaser.Scene {
       }
       this.botPhase = phase;
     }
+    if (phase === 'active' && this.shockwaveArmed) { this.explodeBot(); return; }
     this.botView.view.setVisible(phase === 'active');
     if (phase !== 'active') return;
     const tx = this.botCarrying ? this.botDestination.x : this.ball.x, ty = this.botCarrying ? this.botDestination.y : this.ball.y;
@@ -473,6 +483,24 @@ export class ArenaScene extends Phaser.Scene {
       }
     }
     contain(this.bot, .3);
+  }
+
+  private explodeBot() {
+    if (!this.bot || !this.shockwaveArmed) return;
+    const x = this.bot.x, y = this.bot.y;
+    if (this.botCarrying) {
+      this.botCarrying = false; this.botBallProtected = false; this.botPickupBlockedUntil = this.elapsed + 1.4;
+      const dx = this.ball.x - x, dy = this.ball.y - y, distance = Math.hypot(dx, dy) || 1;
+      this.ball.vx = dx / distance * 280; this.ball.vy = dy / distance * 280; this.ballHop = 1;
+    }
+    this.shockwaveArmed = false; this.botCarrying = false; this.botBallProtected = false;
+    this.botClock = Math.floor(this.botClock / 16) * 16 + 10.2; this.botPhase = 'quiet'; this.botView.view.setVisible(false);
+    this.burst(x, y, 0x8ffcff, 55); this.burst(x, y, 0xffd06f, 35);
+    this.ripples.push({ x, y, age: 0, color: 0xffffff, size: 180 }, { x, y, age: 0, color: 0x78e8ff, size: 280 }, { x, y, age: 0, color: 0xc99cff, size: 390 });
+    this.shockwaves.push({ x, y, age: 0 });
+    this.options.audio.play('complete');
+    this.options.onFeedback({ text: 'PORTAL ROVER POPPED!', kind: 'info', detail: '### JACKPOT · Shockwave deployed. The ball is yours.' });
+    if (!this.controls.reducedMotion) this.cameras.main.shake(260, .007);
   }
 
   private applyGarage() {
@@ -601,6 +629,13 @@ export class ArenaScene extends Phaser.Scene {
     this.sparks = this.sparks.filter(s => s.life > 0);
     for (const ripple of this.ripples) { ripple.age += dt; air.lineStyle(2, ripple.color, Math.max(0, 1 - ripple.age / .6) * .65).strokeCircle(ripple.x, ripple.y, ripple.size * ripple.age / .6); }
     this.ripples = this.ripples.filter(r => r.age < .6).slice(-12);
+    for (const wave of this.shockwaves) {
+      wave.age += dt; const p = Math.min(1, wave.age / 1.05), radius = 35 + p * 360, alpha = Math.max(0, 1 - p);
+      air.fillStyle(0x8ceeff, alpha * .055).fillCircle(wave.x, wave.y, radius);
+      air.lineStyle(10 - p * 7, 0xc9f8ff, alpha * .75).strokeCircle(wave.x, wave.y, radius);
+      air.lineStyle(3, 0xffd978, alpha * .9).strokeCircle(wave.x, wave.y, Math.max(8, radius - 22));
+    }
+    this.shockwaves = this.shockwaves.filter(wave => wave.age < 1.05);
   }
 
   private drawObstacles() {

@@ -5,4 +5,5 @@ playwright-report/
 *.tsbuildinfo
 *.log
 .env*
+!.env.example
 artifacts/

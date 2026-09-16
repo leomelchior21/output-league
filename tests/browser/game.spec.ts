@@ -30,14 +30,14 @@ test('launcher, locked content, journey, and settings fit iPad landscape', async
   await page.goto('/');
   await expect(page.locator('.boot-splash')).toHaveCount(0);
   await expect(page.getByAltText('OUTPUT LEAGUE. Code. Think. Score.')).toBeVisible();
-  await page.getByRole('button', { name: /C#.*CHOOSE JOURNEY/ }).click();
-  await expect(page.getByRole('button', { name: /C#.*READY TO PLAY/ })).toHaveAttribute('aria-pressed', 'true');
-  await page.getByRole('button', { name: /Python.*CHOOSE JOURNEY/ }).click();
+  await page.getByRole('button', { name: /9TH GRADE.*C#/ }).click();
+  await expect(page.getByRole('button', { name: /9TH GRADE.*C#/ })).toHaveAttribute('aria-pressed', 'true');
+  await page.getByRole('button', { name: /7TH GRADE.*Python/i }).click();
   await page.getByRole('button', { name: 'Open settings' }).click();
   await page.getByRole('switch', { name: /Sound effects/ }).click();
   await expect(page.getByRole('switch', { name: /Sound effects/ })).toHaveAttribute('aria-checked', 'false');
   await page.getByRole('button', { name: 'BACK TO IT' }).click();
-  await page.getByRole('button', { name: 'PLAY', exact: true }).click();
+  await page.goto('/python');
   await expect(page).toHaveURL(/\/python$/);
   for (const size of [{width:1024,height:768},{width:1180,height:820},{width:1194,height:834}]) {
     await page.setViewportSize(size);
@@ -45,7 +45,7 @@ test('launcher, locked content, journey, and settings fit iPad landscape', async
     expect(nodes).toEqual(Array(8).fill(true));
     expect(await page.evaluate(() => document.documentElement.scrollHeight <= innerHeight && document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   }
-  await page.getByRole('button', { name: /Level 2:/ }).click({ force: true });
+  await page.getByRole('button', { name: /Level 2:/ }).dispatchEvent('click');
   await expect(page.getByRole('status')).toContainText('SIMPLE VARIABLES — COMING SOON');
   await expect(page).toHaveURL(/\/python$/);
   await page.screenshot({ path: `test-results/journey-${testInfo.project.name}.png` });
@@ -107,6 +107,7 @@ test('real controls, physics goals, all ten rounds, mastery, results and replay'
   await expect(page.locator('.demo-output')).toHaveCount(2);
   await page.getByRole('button', { name: 'SEE MY SCORE' }).click();
   await expect(page.getByRole('dialog', { name: 'Level complete' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'NEXT LEVEL', exact: true })).toBeVisible();
   await expect(page.locator('.total-score strong')).not.toHaveText('0XP');
   await page.screenshot({ path: `test-results/results-${testInfo.project.name}.png` });
   await page.getByRole('button', { name: 'REPLAY', exact: true }).click();
@@ -120,6 +121,25 @@ test('real controls, physics goals, all ten rounds, mastery, results and replay'
   await expect(page.getByRole('button', { name: /Level 2:/ })).toHaveAttribute('aria-disabled', 'false');
   await expect(page.getByRole('button', { name: /Level 1:/ }).locator('.node-play')).toContainText('REPLAY · BEST');
   expect(errors).toEqual([]);
+});
+
+test('level completion can continue directly into the next unlocked level', async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem('output-league:tutorial', '1');
+    localStorage.setItem('output-league:settings', JSON.stringify({ reducedMotion: true, sound: false }));
+  });
+  await page.goto('/python/level/1?qa=1');
+  await expect.poll(() => page.evaluate(() => Boolean((window as any).__arena))).toBe(true);
+  await page.evaluate(() => {
+    const scene = (window as any).__arena;
+    scene.match.round = 9; scene.match.score = 1200; scene.match.levelComplete = true;
+    scene.options.onSnapshot(scene.match.snapshot());
+  });
+  await expect(page.getByRole('dialog', { name: 'PRINT learning recap' })).toBeVisible();
+  await page.getByRole('button', { name: 'SEE MY SCORE' }).click();
+  await page.getByRole('button', { name: 'NEXT LEVEL', exact: true }).click();
+  await expect(page).toHaveURL(/\/python\/level\/2$/);
+  await expect(page.locator('.code-panel-label').first()).toContainText('PYTHON · LEVEL 02');
 });
 
 test('pointer joystick has analog magnitude and boost responds while steering', async ({ page }) => {

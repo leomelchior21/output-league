@@ -1,5 +1,6 @@
 import { paints, trails, decals, pitches } from './garage';
 import type { Language } from './levels';
+import { saveStudentProgressRemote, saveStudentSettingsRemote } from './supabase';
 export interface Settings { sound: boolean; reducedMotion: boolean; paint: typeof paints[number]['id']; trail: typeof trails[number]['id']; decal: typeof decals[number]; pitch: typeof pitches[number]['id'] }
 export interface Progress { bestScore: number; stars: number; complete: boolean }
 const defaults: Settings = { sound: true, reducedMotion: false, paint: 'azure', trail: 'ion', decal: 'crown', pitch: 'shuffle' };
@@ -25,7 +26,10 @@ export function getProgress(levelId = 1, language: Language = 'python'): Progres
     return cleanProgress();
   } catch { return cleanProgress(); }
 }
-export function saveSettings(s: Settings) { try { localStorage.setItem('output-league:settings', JSON.stringify(s)); } catch { /* Play remains available without storage. */ } }
+export function saveSettings(s: Settings, sync = true) {
+  try { localStorage.setItem('output-league:settings', JSON.stringify(s)); } catch { /* Play remains available without storage. */ }
+  if (sync) void saveStudentSettingsRemote(s);
+}
 export function saveProgress(score: number, stars: number, levelId = 1, language: Language = 'python') {
   const old = getProgress(levelId, language), next = { bestScore: Math.max(old.bestScore, score), stars: Math.max(old.stars, stars), complete: true };
   try {
@@ -36,4 +40,28 @@ export function saveProgress(score: number, stars: number, levelId = 1, language
     // Keep the original Level 1 record readable by existing installations and tests.
     if (language === 'python' && levelId === 1) localStorage.setItem('output-league:progress', JSON.stringify(next));
   } catch { /* Private browsing may disable storage. */ }
+  void saveStudentProgressRemote(language, levelId, score, stars);
+}
+
+export function hydrateStudentStorage(settings: Partial<Settings> | null, progress: Partial<Record<Language, Record<number, Partial<Progress>>>>) {
+  try {
+    for (const language of ['python', 'csharp', 'swift'] as const) {
+      const key = language === 'python' ? 'output-league:level-progress' : `output-league:${language}:level-progress`;
+      const levels = progress[language] ?? {};
+      const cleaned = Object.fromEntries(Object.entries(levels).map(([id, value]) => [id, cleanProgress(value)]));
+      localStorage.setItem(key, JSON.stringify(cleaned));
+      if (language === 'python') localStorage.setItem('output-league:progress', JSON.stringify(cleaned[1] ?? cleanProgress()));
+    }
+  } catch { /* The in-memory session still works if storage is unavailable. */ }
+  if (settings) saveSettings({ ...defaults, ...settings }, false);
+}
+
+export function clearStudentStorage() {
+  try {
+    localStorage.removeItem('output-league:settings');
+    localStorage.removeItem('output-league:progress');
+    localStorage.removeItem('output-league:level-progress');
+    localStorage.removeItem('output-league:csharp:level-progress');
+    localStorage.removeItem('output-league:swift:level-progress');
+  } catch { /* Optional local cache. */ }
 }

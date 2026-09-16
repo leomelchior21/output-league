@@ -19,11 +19,20 @@ npx playwright install chromium webkit
 npm run test:e2e -- --workers=1
 ```
 
-The production output is `dist/`. A static host should rewrite navigation requests to `index.html` for the three client-side routes. No server application, accounts, database, analytics, or external runtime requests are needed. Fonts and artwork are served locally.
+The production output is `dist/`. A static host should rewrite navigation requests to `index.html` for the client-side routes. Fonts and artwork are served locally; student sessions, progress, garage choices, scores, and standings use Supabase.
+
+## Supabase setup
+
+1. Create or open the Supabase project, then run `supabase/migrations/202609160001_student_progress.sql` in the SQL editor.
+2. Run `supabase/seed.sql` to import the 276 supplied students. The source snapshot is `supabase/students_supabase.csv`; regenerate the SQL after updating it with `npm run seed:students`.
+3. Copy `.env.example` to `.env.local` and replace `VITE_SUPABASE_URL` with the Project URL from Supabase’s Connect dialog. The supplied publishable key is already present.
+4. Restart Vite after changing environment values.
+
+The browser has no direct table permissions. Login, settings, progress, and leaderboard access use narrowly granted database functions; student sessions are random, hashed, and expire after 30 days. Because the requested login has no password, a classmate who knows another student’s username and grade can still impersonate them. Add a per-student PIN or Supabase Auth before treating the scores as tamper-proof.
 
 ## Play
 
-Choose Python → PLAY → select PRINT → PLAY MATCH. Try the first-game code demo, watch the stadium reveal, then steer your rover and score the ball in the matching output goal. Settings includes a garage with four paints, three roof decals, three boost trails, and five atmosphere options. Choices are saved on this device.
+Choose your grade, enter the supplied first-and-last-name username, then select PRINT → PLAY MATCH. Grade 7 enters Python, Grade 8 enters Swift, and Grade 9 enters C#. Try the first-game code demo, watch the stadium reveal, then steer your rover and score the ball in the matching output goal. Settings includes a garage with four paints, three roof decals, three boost trails, and five atmosphere options. Choices sync to the active student and retain a local fallback.
 
 | Action | Touch | Keyboard |
 |---|---|---|
@@ -42,16 +51,16 @@ Steering magnitude controls speed. Kicks follow the rover's facing direction and
 - A smooth camera follows the rover with directional look-ahead. The radar sits beside the joystick, leaving the center clear. Off-screen output markers, detailed turf, beveled neon nets, tire marks, colored exhaust, impact particles, drifting momentum, and a visibly rolling ball bring the arena to life.
 - Four pitch styles: alpine turf, midnight rain with puddles, polar ice with cracks and snow, and sun-worn grass with dust. Rain and ice loosen lateral grip and ice extends ball travel; worn turf adds a little rolling resistance. Choose one in Settings or let each match select a random atmosphere. Car cosmetics update immediately; atmosphere applies next match.
 - Grandstands surround all eight edges. Fans wave and cheer, correct goals trigger confetti and a synthesized crowd roar, and wrong goals bring a dramatic red vignette. Reduced motion removes confetti, weather animation, camera shake, and animated zoom.
-- Campaign map includes all eight Python levels. Only PRINT is playable. Completing it never unlocks Level 2. C# and locked nodes show coming-soon feedback.
+- Each language map includes eight levels. Levels 1–4 are playable and unlock in order; Levels 5–8 remain marked coming soon.
 - Ten designed rounds: integers, strings, punctuation, six goals, escalating barriers, bumpers, opening pits, rotating arms, brief portal-rover steals, four moving goals in Orbit Mode, zero or a negative number, and a two-phase mastery sequence. The ball drops into the center and makes a small bounce in a random direction at each kickoff.
 - Every entry and replay generates fresh numbers and words while preserving the learning progression and misconception-based choices. Mastery asks for two randomized outputs in order. Its code stays unchanged between the two shots; scoring the second output early is a wrong goal.
 - The first-game tutorial has an interactive code/output demo. Completing PRINT opens a learning recap using the actual mastery code, with animated output and reminders about values, quotes, and execution order, before showing scores. Later levels remain coming soon.
-- From round five, a portal rover gives a visible warning, tries to steal the ball, then carries it to the opposite side and disappears. It leaves the ball at rest, protected from scoring until the player touches it again. Later rounds increase its speed and frequency. Amber repair pits open and close, gently ejecting cars or balls without an XP penalty. Neither distraction appears in the opening rounds.
+- From round five, a portal rover gives a visible warning, tries to steal the ball, then carries it to the opposite side and disappears. Rover rounds also offer one `###` slot roll; a jackpot arms a layered shockwave that explodes the rover and safely releases the ball. Later rounds increase its speed and frequency. Amber repair pits open and close, gently ejecting cars or balls without an XP penalty. Neither distraction appears in the opening rounds.
 - Wrong goals deduct 50 points (never below zero), reset the streak and vehicles, and preserve the challenge, output positions, round, and mastery phase.
 - No time-based failure. Potential XP starts at 300, has a three-second grace period, decays by seven per second, and stops at 60. The first round gets eight seconds and slower decay. Each round allows three kicks; Orbit Mode removes the kick option.
 - Accuracy +40, clean shot +20, streak +15 per consecutive clean round (capped at +75), Orbit +40, mastery +100.
 - Stars weight accuracy 50%, score 35%, and clean shots 15%, with additional wrong-goal caps. Completion always earns at least one star.
-- Local storage contains settings (including garage choices), tutorial completion, and Level 1 completion, best score, and stars. Play still works if storage is unavailable.
+- Supabase stores each student’s level bests, stars, attempts, and garage/settings profile. Local storage acts as a responsive cache and keeps the game playable when the remote service is temporarily unavailable.
 
 ## Implementation
 
