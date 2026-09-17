@@ -32,7 +32,7 @@ The browser has no direct table permissions. Login, settings, progress, and lead
 
 ## Play
 
-Choose your grade, enter the supplied first-and-last-name username, then select PRINT → PLAY MATCH. Grade 7 enters Python, Grade 8 enters Swift, and Grade 9 enters C#. Try the first-game code demo, watch the stadium reveal, then steer your rover and score the ball in the matching output goal. Settings includes a garage with four paints, three roof decals, three boost trails, and five atmosphere options. Choices sync to the active student and retain a local fallback.
+Choose your grade, enter the supplied first-and-last-name username, then select PRINT → PLAY MATCH. Grade 7 enters Python, Grade 8 enters Swift, and Grade 9 enters C#. The staff accounts `leleomaker`, `davimaker`, and `brianmaker` exist in every grade; after signing in they can open all three languages and use the TEACH DASHBOARD button, which lists every student with their best score, stars, and completed levels in Python, Swift, and C#. Try the first-game code demo, watch the stadium reveal, then steer your rover and score the ball in the matching output goal. Settings includes a garage with four paints, three roof decals, three boost trails, and five atmosphere options. Choices sync to the active student and retain a local fallback.
 
 | Action | Touch | Keyboard |
 |---|---|---|

@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useRef, useState } from 'react';
-import { ArrowLeft, ArrowRight, ChevronRight, Code2, LockKeyhole, Play, Settings2, Star, Terminal, Trophy, UserRound } from 'lucide-react';
+import { ArrowLeft, ArrowRight, ChevronRight, Code2, LayoutDashboard, LockKeyhole, Play, Settings2, Star, Terminal, Trophy, UserRound } from 'lucide-react';
 import { isLanguage, languages, type Level, type Language } from './data/levels';
 import { clearStudentStorage, getProgress, getSettings, hydrateStudentStorage, saveSettings, type Settings as SettingsValue } from './data/storage';
 import { getStudentSession, isSupabaseConfigured, loginStudent, logoutStudent, refreshStudentState, type StudentSession } from './data/supabase';
@@ -10,6 +10,7 @@ import Settings from './components/Settings';
 import BootSplash from './components/BootSplash';
 import StudentLogin from './components/StudentLogin';
 import Leaderboard from './components/Leaderboard';
+import TeacherDashboard from './components/TeacherDashboard';
 
 const Game = lazy(() => import('./components/Game'));
 type PlayableLevel = 1 | 2 | 3 | 4;
@@ -23,13 +24,14 @@ function parseRoute(pathname: string): RouteInfo | null {
 }
 
 function readRoute(): Route {
+  if (location.pathname === '/teacher') return getStudentSession()?.isTeacher ? '/teacher' : '/';
   const info = parseRoute(location.pathname);
   if (!info) return '/';
   const qaBypass = import.meta.env.DEV && new URLSearchParams(location.search).has('qa');
   if (isSupabaseConfigured && !qaBypass) {
     const session = getStudentSession();
     if (!session) return '/';
-    if (info.language !== session.language) return `/${session.language}`;
+    if (!session.isTeacher && info.language !== session.language) return `/${session.language}`;
   }
   if (info.levelId && info.levelId > 1 && !getProgress(info.levelId - 1, info.language).complete) return `/${info.language}`;
   return location.pathname;
@@ -118,10 +120,10 @@ export default function App() {
   return <div className={`app-shell lang-${activeLanguage} ${transition ? 'transition-out' : ''}`}>
     <BootSplash reducedMotion={settings.reducedMotion} onComplete={setBootReady} />
     {route === '/' && <main className="home-screen screen-enter"><div className="home-world" /><div className="home-shade" /><button className="icon-button settings-button" onClick={() => setSettingsOpen(true)} aria-label="Open settings"><Settings2 size={25} /></button>
-      <section className="launcher"><img className="home-logo" src="/assets/logo.webp" alt="OUTPUT LEAGUE. Code. Think. Score." /><StudentLogin grade={grade} username={username} pending={loginPending} error={loginError} session={student} onGrade={(nextGrade, nextLanguage) => { setGrade(nextGrade); setLanguage(nextLanguage); setLoginError(''); }} onUsername={value => { setUsername(value); setLoginError(''); }} onLogin={submitLogin} onContinue={() => navigate(`/${student?.language ?? language}`)} onLogout={switchStudent} /><button className="leaderboard-launch" onClick={() => setLeaderboardOpen(true)}><Trophy size={17} /> ALL-TIME LEADERS <ChevronRight size={16} /></button></section>
+      <section className="launcher"><img className="home-logo" src="/assets/logo.webp" alt="OUTPUT LEAGUE. Code. Think. Score." /><StudentLogin grade={grade} username={username} pending={loginPending} error={loginError} session={student} onGrade={(nextGrade, nextLanguage) => { setGrade(nextGrade); setLanguage(nextLanguage); setLoginError(''); }} onUsername={value => { setUsername(value); setLoginError(''); }} onLogin={submitLogin} onContinue={() => navigate(`/${student?.language ?? language}`)} onLogout={switchStudent} onDashboard={() => navigate('/teacher')} /><button className="leaderboard-launch" onClick={() => setLeaderboardOpen(true)}><Trophy size={17} /> ALL-TIME LEADERS <ChevronRight size={16} /></button></section>
     </main>}
 
-    {routeInfo && !routeInfo.levelId && <main className={`journey-screen screen-enter lang-${activeLanguage}`}><div className="journey-atmosphere" /><header className="journey-header"><button className="icon-button" onClick={() => navigate('/')} aria-label="Back to home"><ArrowLeft /></button><img src="/assets/logo.webp" alt="Output League" className="small-logo" /><div className="journey-header-title"><span className="eyebrow">ONE LINE AT A TIME. ONE GOAL CLOSER.</span><h1>{pack.journeyTitle}<span className="title-dot">.</span></h1></div><button className="header-leaders" onClick={() => setLeaderboardOpen(true)}><Trophy size={16} /> ALL-TIME LEADERS</button><div className="journey-language"><LanguageIcon language={activeLanguage} /><span>{pack.displayName.toUpperCase()}</span><span className="language-pill">JOURNEY</span></div><button className="icon-button" onClick={() => setSettingsOpen(true)} aria-label="Open settings"><Settings2 /></button></header>
+    {routeInfo && !routeInfo.levelId && <main className={`journey-screen screen-enter lang-${activeLanguage}`}><div className="journey-atmosphere" /><header className="journey-header"><button className="icon-button" onClick={() => navigate('/')} aria-label="Back to home"><ArrowLeft /></button><img src="/assets/logo.webp" alt="Output League" className="small-logo" /><div className="journey-header-title"><span className="eyebrow">ONE LINE AT A TIME. ONE GOAL CLOSER.</span><h1>{pack.journeyTitle}<span className="title-dot">.</span></h1></div><button className="header-leaders" onClick={() => setLeaderboardOpen(true)}><Trophy size={16} /> ALL-TIME LEADERS</button>{student?.isTeacher && <button className="header-leaders teacher-dash" onClick={() => navigate('/teacher')}><LayoutDashboard size={16} /> TEACH DASHBOARD</button>}<div className="journey-language"><LanguageIcon language={activeLanguage} /><span>{pack.displayName.toUpperCase()}</span><span className="language-pill">JOURNEY</span></div><button className="icon-button" onClick={() => setSettingsOpen(true)} aria-label="Open settings"><Settings2 /></button></header>
       <div className="journey-heading"><div className="journey-student">{student && <><UserRound size={16} /><span><small>PLAYING AS</small><strong>{student.fullName}</strong></span></>}</div><div className="journey-progress"><Trophy size={20} /><span><strong>{completedCount} <small>/ 8</small></strong><small>ARENAS COMPLETED</small></span></div></div>
       <section className="journey-map" aria-label={`Eight ${pack.displayName} levels`}><svg className="journey-path" viewBox="0 0 1000 500" preserveAspectRatio="none" aria-hidden="true"><path d="M125 130H845Q975 130 945 265T875 380H125" /><path className="active-path" d="M125 130H245" /></svg>{pack.levels.map(level => { const unlocked = isUnlocked(level.id), levelProgress = progress[level.id - 1]; return <button key={level.id} style={{ '--node-column': level.id <= 4 ? level.id : 9 - level.id, '--node-row': level.id <= 4 ? 1 : 2 } as React.CSSProperties} className={`level-node ${unlocked ? 'is-active' : 'is-locked'} ${locked === level.id ? 'locked-bounce' : ''}`} aria-disabled={!unlocked} aria-label={`Level ${level.id}: ${level.title}${unlocked ? ', playable' : ', locked'}`} onClick={() => unlocked ? setSelectedLevel(level) : comingSoon(level.title, level.id)}>
         <Island level={{ ...level, locked: !unlocked }} /><div className="node-details"><span className="level-number">{unlocked ? <Play size={11} fill="currentColor" /> : <LockKeyhole size={13} />} LEVEL {String(level.id).padStart(2, '0')}</span><h2>{level.title}</h2><p>{level.description}</p><div className="node-stars" aria-label={`${levelProgress.stars} of 3 stars`}>{[1, 2, 3].map(n => <Star key={n} size={17} className={n <= levelProgress.stars ? 'earned' : ''} />)}</div>{unlocked && <span className="node-play">{levelProgress.complete ? `REPLAY · BEST ${levelProgress.bestScore.toLocaleString('en-US')}` : 'ENTER ARENA'} <ChevronRight size={14} /></span>}{!unlocked && level.id > 4 && <span className="coming-soon-label">COMING SOON</span>}</div>
@@ -129,6 +131,7 @@ export default function App() {
     </main>}
 
     {routeInfo?.levelId && <Suspense fallback={<div className="loading-screen"><Terminal size={36} /><strong>ENTERING THE ARENA</strong></div>}><Game language={activeLanguage} levelId={routeInfo.levelId} entranceReady={bootReady} settings={settings} onSettingsChange={changeSettings} onJourney={() => navigate(`/${activeLanguage}`)} onNextLevel={routeInfo.levelId < 4 ? () => navigate(`/${activeLanguage}/level/${routeInfo.levelId! + 1}`) : undefined} /></Suspense>}
+    {route === '/teacher' && <TeacherDashboard onBack={() => navigate('/')} onPlay={language => navigate(`/${language}`)} />}
     {settingsOpen && <Settings value={settings} onChange={changeSettings} onClose={() => setSettingsOpen(false)} />}
     {leaderboardOpen && <Leaderboard onClose={() => setLeaderboardOpen(false)} />}
     {selectedLevel && (() => { const intro = introduction(selectedLevel.language, selectedLevel.id as PlayableLevel); const selectedPack = languages[selectedLevel.language]; return <Modal label={`Level ${selectedLevel.id}: ${selectedLevel.title}`} onClose={() => setSelectedLevel(null)} className={`level-modal lang-${selectedLevel.language}`}><div className="level-modal-art"><Island level={{ ...selectedLevel, locked: false }} /></div><span className="eyebrow">{selectedPack.displayName.toUpperCase()} · LEVEL {String(selectedLevel.id).padStart(2, '0')}</span><h2>{intro.heading}<br /><span className="cyan-text">{intro.accent}</span></h2><p>{intro.body}</p><div className="level-facts"><span><Code2 size={19} /> 10 rounds</span><span><Trophy size={19} /> 3 stars to earn</span></div><button className="primary-button" onClick={() => navigate(`/${selectedLevel.language}/level/${selectedLevel.id}`)}><Play size={22} fill="currentColor" /> PLAY MATCH <ArrowRight size={21} /></button><span className="quiet-note">No timer. Find your rhythm.</span></Modal>; })()}

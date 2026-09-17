@@ -24,6 +24,7 @@ export interface StudentProfile {
   className: string;
   groupName: string | null;
   language: Language;
+  isTeacher: boolean;
 }
 
 export interface StudentSession extends StudentProfile {
@@ -46,6 +47,22 @@ export interface LeaderboardEntry {
   levelsCompleted: number;
 }
 
+export interface TeacherStudentProgress {
+  bestScore: number;
+  stars: number;
+  levelsCompleted: number;
+}
+
+export interface TeacherStudent {
+  id: string;
+  username: string;
+  fullName: string;
+  grade: 7 | 8 | 9;
+  className: string;
+  groupName: string | null;
+  progress: Record<Language, TeacherStudentProgress>;
+}
+
 export class SupabaseSetupError extends Error {
   constructor(message = 'The Supabase project URL has not been configured yet.') { super(message); }
 }
@@ -65,7 +82,7 @@ function parseStudent(raw: Record<string, unknown>): StudentProfile {
   return {
     id: String(raw.id), username: String(raw.username), fullName: String(raw.full_name), grade,
     className: String(raw.class_name), groupName: raw.group_name ? String(raw.group_name) : null,
-    language: languageForGrade(grade),
+    language: languageForGrade(grade), isTeacher: raw.is_teacher === true,
   };
 }
 
@@ -149,6 +166,29 @@ export async function getAllTimeLeaders(): Promise<Record<Language, LeaderboardE
     });
   }
   return empty;
+}
+
+export async function getTeacherDashboard(): Promise<TeacherStudent[]> {
+  const session = getStudentSession();
+  if (!client || !session) return [];
+  const { data, error } = await client.rpc('get_teacher_dashboard', { p_session_token: session.token });
+  if (error) throw error;
+  if (!data) return [];
+  const raw = (data as Record<string, unknown>).students;
+  if (!Array.isArray(raw)) return [];
+  return raw.map(entry => {
+    const student = entry as Record<string, unknown>;
+    const grade = Number(student.grade) as 7 | 8 | 9;
+    const rawProgress = (student.progress && typeof student.progress === 'object' ? student.progress : {}) as Record<string, unknown>;
+    const progress = Object.fromEntries((['python', 'swift', 'csharp'] as Language[]).map(language => {
+      const value = (rawProgress[language] && typeof rawProgress[language] === 'object' ? rawProgress[language] : {}) as Record<string, unknown>;
+      return [language, { bestScore: Number(value.best_score ?? 0), stars: Number(value.stars ?? 0), levelsCompleted: Number(value.levels_completed ?? 0) }];
+    })) as Record<Language, TeacherStudentProgress>;
+    return {
+      id: String(student.id), username: String(student.username), fullName: String(student.full_name), grade,
+      className: String(student.class_name), groupName: student.group_name ? String(student.group_name) : null, progress,
+    };
+  });
 }
 
 export async function logoutStudent() {

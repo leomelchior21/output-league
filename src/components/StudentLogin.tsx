@@ -1,4 +1,4 @@
-import { ArrowRight, Check, LogIn, LogOut, UserRound } from 'lucide-react';
+import { ArrowRight, Check, LayoutDashboard, LogIn, LogOut, UserRound } from 'lucide-react';
 import { languages, type Language } from '../data/levels';
 import { languageForGrade, normalizeUsername, type StudentSession } from '../data/supabase';
 import { LanguageIcon } from './Icons';
@@ -9,7 +9,7 @@ const grades = [
   { grade: 9 as const, language: 'csharp' as const, label: '9TH GRADE' },
 ];
 
-export default function StudentLogin({ grade, username, pending, error, session, onGrade, onUsername, onLogin, onContinue, onLogout }: {
+export default function StudentLogin({ grade, username, pending, error, session, onGrade, onUsername, onLogin, onContinue, onLogout, onDashboard }: {
   grade: 7 | 8 | 9;
   username: string;
   pending: boolean;
@@ -20,11 +20,13 @@ export default function StudentLogin({ grade, username, pending, error, session,
   onLogin: () => void;
   onContinue: () => void;
   onLogout: () => void;
+  onDashboard: () => void;
 }) {
   if (session) return <section className="student-login returning-player" aria-label="Student login">
     <div className="returning-avatar"><UserRound /></div>
-    <div className="returning-copy"><span className="eyebrow">WELCOME BACK</span><strong>{session.fullName}</strong><small>{session.className} · {languages[session.language].displayName}</small></div>
+    <div className="returning-copy"><span className="eyebrow">{session.isTeacher ? 'STAFF SIGNED IN' : 'WELCOME BACK'}</span><strong>{session.fullName}</strong><small>{session.isTeacher ? 'All languages · all students' : `${session.className} · ${languages[session.language].displayName}`}</small></div>
     <button className="primary-button continue-button" onClick={onContinue}>CONTINUE <ArrowRight size={20} /></button>
+    {session.isTeacher && <button className="teacher-dashboard-open" onClick={onDashboard}><LayoutDashboard size={16} /> TEACH DASHBOARD</button>}
     <button className="switch-player" onClick={onLogout}><LogOut size={14} /> NOT YOU?</button>
   </section>;
 
