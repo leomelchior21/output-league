@@ -6,6 +6,7 @@ import { LanguageIcon } from './Icons';
 import Modal from './Modal';
 
 const order: Language[] = ['python', 'swift', 'csharp'];
+const playableLevels = [1, 2, 3, 4];
 
 export default function Leaderboard({ onClose }: { onClose: () => void }) {
   const [leaders, setLeaders] = useState<Record<Language, LeaderboardEntry[]>>({ python: [], swift: [], csharp: [] });
@@ -17,9 +18,9 @@ export default function Leaderboard({ onClose }: { onClose: () => void }) {
     return () => { active = false; };
   }, []);
   return <Modal label="All-time leaders" onClose={onClose} className="leaderboard-modal"><div className="leaderboard-title"><Crown /><span><span className="eyebrow">OUTPUT LEAGUE HALL OF FAME</span><h2>All-time leaders.</h2></span></div>
-    <p className="muted">The top 10 students in each coding journey, ranked by their combined level bests.</p>
+    <p className="muted">The top 10 students in each coding journey, ranked by their combined level bests, with every level score shown.</p>
     <div className="leaderboard-grid">{order.map(language => <section className={`leaderboard-column lang-${language}`} key={language}><header><LanguageIcon language={language} /><span><strong>{languages[language].displayName}</strong><small>TOP 10</small></span></header><ol>
-      {leaders[language].map(player => <li key={`${player.rank}-${player.displayName}`}><span className="leader-rank">{player.rank <= 3 ? <Medal /> : player.rank}</span><span className="leader-name">{player.displayName}<small>{player.levelsCompleted} level{player.levelsCompleted === 1 ? '' : 's'} · {player.totalStars} stars</small></span><b>{player.totalScore.toLocaleString('en-US')}</b></li>)}
+      {leaders[language].map(player => <li key={`${player.rank}-${player.displayName}`}><span className="leader-rank">{player.rank <= 3 ? <Medal /> : player.rank}</span><span className="leader-name">{player.displayName}<small>{player.levelsCompleted} level{player.levelsCompleted === 1 ? '' : 's'} · {player.totalStars} stars</small><span className="leader-levels">{playableLevels.map(id => <span key={id} className={player.levels[id] ? '' : 'is-empty'}><i>L{id}</i><b>{player.levels[id] ? player.levels[id].toLocaleString('en-US') : '—'}</b></span>)}</span></span><b>{player.totalScore.toLocaleString('en-US')}</b></li>)}
       {!loading && !leaders[language].length && <li className="empty-leaders">No scores yet. Be the first.</li>}
     </ol></section>)}</div>
     {loading && <div className="leaderboard-loading"><Trophy /> LOADING THE STANDINGS…</div>}

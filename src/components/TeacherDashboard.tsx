@@ -5,6 +5,7 @@ import { getStudentSession, getTeacherDashboard, isSupabaseConfigured, type Teac
 import { LanguageIcon } from './Icons';
 
 const order: Language[] = ['python', 'swift', 'csharp'];
+const playableLevels = [1, 2, 3, 4];
 const liveRefreshMs = 5000;
 const years: { grade: 7 | 8 | 9; language: Language; label: string }[] = [
   { grade: 7, language: 'python', label: '7th' },
@@ -101,14 +102,13 @@ export default function TeacherDashboard({ onBack, onPlay }: { onBack: () => voi
     </section>
 
     <section className="teacher-table" aria-label={`${activeYear.label} grade ${languages[activeYear.language].displayName} progress`}>
-      <div className="teacher-row teacher-row-head"><span>Student</span><span>Class</span><span><LanguageIcon language={activeYear.language} /> {languages[activeYear.language].displayName} · {activeYear.label} grade</span></div>
+      <div className="teacher-row teacher-row-head"><span>Student</span><span>Class</span>{playableLevels.map(id => <span key={id}>LEVEL {id}</span>)}</div>
       {visible.map(student => { const progress = student.progress[activeYear.language]; return <div className="teacher-row" key={`${student.id}-${student.grade}`}>
         <span className="teacher-student"><strong>{student.fullName}</strong><small>@{student.username} · Grade {student.grade}{student.groupName ? ` · ${student.groupName}` : ''}</small></span>
         <span className="teacher-class-name">{student.className}</span>
-        <span className={`teacher-progress lang-${activeYear.language}`}>
-          <b>{progress.bestScore.toLocaleString('en-US')}</b>
-          <small>{progress.levelsCompleted} level{progress.levelsCompleted === 1 ? '' : 's'} · {progress.stars} star{progress.stars === 1 ? '' : 's'}</small>
-        </span>
+        {playableLevels.map(id => { const level = progress.levels[id]; return <span key={id} className={`teacher-progress lang-${activeYear.language} ${level?.complete ? '' : 'is-empty'}`}>
+          {level?.complete ? <><b>{level.bestScore.toLocaleString('en-US')}</b><small>{level.stars} star{level.stars === 1 ? '' : 's'}</small></> : <b>—</b>}
+        </span>; })}
       </div>; })}
       {!loading && !visible.length && <p className="teacher-empty">No students match this filter.</p>}
       {loading && <div className="teacher-loading"><RefreshCw className="spin" /> Loading every student…</div>}

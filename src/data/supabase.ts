@@ -45,12 +45,20 @@ export interface LeaderboardEntry {
   totalScore: number;
   totalStars: number;
   levelsCompleted: number;
+  levels: Record<number, number>;
+}
+
+export interface LevelScore {
+  bestScore: number;
+  stars: number;
+  complete: boolean;
 }
 
 export interface TeacherStudentProgress {
   bestScore: number;
   stars: number;
   levelsCompleted: number;
+  levels: Record<number, LevelScore>;
 }
 
 export interface TeacherStudent {
@@ -75,6 +83,19 @@ export function languageForGrade(grade: number): Language {
   if (grade === 7) return 'python';
   if (grade === 8) return 'swift';
   return 'csharp';
+}
+
+function parseLevelScores(raw: unknown): Record<number, LevelScore> {
+  if (!raw || typeof raw !== 'object') return {};
+  return Object.fromEntries(Object.entries(raw as Record<string, unknown>).map(([level, value]) => {
+    const item = (value && typeof value === 'object' ? value : {}) as Record<string, unknown>;
+    return [Number(level), { bestScore: Number(item.best_score ?? 0), stars: Number(item.stars ?? 0), complete: item.complete === true }];
+  }));
+}
+
+function parseLevelBestScores(raw: unknown): Record<number, number> {
+  if (!raw || typeof raw !== 'object') return {};
+  return Object.fromEntries(Object.entries(raw as Record<string, unknown>).map(([level, value]) => [Number(level), Number(value ?? 0)]));
 }
 
 function parseStudent(raw: Record<string, unknown>): StudentProfile {
@@ -168,7 +189,7 @@ export async function getAllTimeLeaders(): Promise<Record<Language, LeaderboardE
     if (!(language in empty)) continue;
     empty[language].push({
       language, rank: Number(row.rank), displayName: String(row.display_name), totalScore: Number(row.total_score),
-      totalStars: Number(row.total_stars), levelsCompleted: Number(row.levels_completed),
+      totalStars: Number(row.total_stars), levelsCompleted: Number(row.levels_completed), levels: parseLevelBestScores(row.levels),
     });
   }
   return empty;
@@ -188,7 +209,7 @@ export async function getTeacherDashboard(): Promise<TeacherStudent[]> {
     const rawProgress = (student.progress && typeof student.progress === 'object' ? student.progress : {}) as Record<string, unknown>;
     const progress = Object.fromEntries((['python', 'swift', 'csharp'] as Language[]).map(language => {
       const value = (rawProgress[language] && typeof rawProgress[language] === 'object' ? rawProgress[language] : {}) as Record<string, unknown>;
-      return [language, { bestScore: Number(value.best_score ?? 0), stars: Number(value.stars ?? 0), levelsCompleted: Number(value.levels_completed ?? 0) }];
+      return [language, { bestScore: Number(value.best_score ?? 0), stars: Number(value.stars ?? 0), levelsCompleted: Number(value.levels_completed ?? 0), levels: parseLevelScores(value.levels) }];
     })) as Record<Language, TeacherStudentProgress>;
     return {
       id: String(student.id), username: String(student.username), fullName: String(student.full_name), grade,
