@@ -27,9 +27,11 @@ test('C# and Swift progress stay independent', async ({ page }) => {
   await page.goto('/');
   await page.evaluate(() => localStorage.setItem('output-league:csharp:level-progress', JSON.stringify({ 1: { bestScore: 800, stars: 2, complete: true } })));
   await page.goto('/csharp?qa=1');
+  await expect(page.getByRole('button', { name: /Level 1:/ }).locator('.node-play')).toContainText('REPLAY · BEST 800');
   await expect(page.getByRole('button', { name: /Level 2:/ })).toHaveAttribute('aria-disabled', 'false');
   await page.goto('/swift?qa=1');
-  await expect(page.getByRole('button', { name: /Level 2:/ })).toHaveAttribute('aria-disabled', 'true');
+  await expect(page.getByRole('button', { name: /Level 1:/ }).locator('.node-play')).toContainText('ENTER ARENA');
+  await expect(page.getByRole('button', { name: /Level 2:/ })).toHaveAttribute('aria-disabled', 'false');
 });
 
 test('all three Level 4 arenas load the correct language content', async ({ page }) => {

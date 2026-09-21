@@ -33,7 +33,6 @@ function readRoute(): Route {
     if (!session) return '/';
     if (!session.isTeacher && info.language !== session.language) return `/${session.language}`;
   }
-  if (info.levelId && info.levelId > 1 && !getProgress(info.levelId - 1, info.language).complete) return `/${info.language}`;
   return location.pathname;
 }
 
@@ -72,7 +71,7 @@ export default function App() {
   const pack = languages[activeLanguage];
   const progress = pack.levels.map(level => getProgress(level.id, activeLanguage));
   const completedCount = progress.slice(0, 4).filter(item => item.complete).length;
-  const isUnlocked = (levelId: number) => levelId === 1 || (levelId <= 4 && progress[levelId - 2].complete);
+  const isUnlocked = (levelId: number) => levelId <= 4;
 
   useEffect(() => {
     const back = () => {

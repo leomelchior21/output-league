@@ -45,10 +45,13 @@ test('launcher, locked content, journey, and settings fit iPad landscape', async
     expect(nodes).toEqual(Array(8).fill(true));
     expect(await page.evaluate(() => document.documentElement.scrollHeight <= innerHeight && document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   }
-  await page.getByRole('button', { name: /Level 2:/ }).dispatchEvent('click');
-  await expect(page.getByRole('status')).toContainText('SIMPLE VARIABLES — COMING SOON');
+  await page.getByRole('button', { name: /Level 5:/ }).dispatchEvent('click');
+  await expect(page.getByRole('status')).toContainText('USER INPUT — COMING SOON');
   await expect(page).toHaveURL(/\/python\?qa=1$/);
   await page.screenshot({ path: `test-results/journey-${testInfo.project.name}.png` });
+  await page.getByRole('button', { name: /Level 2:/ }).click();
+  await expect(page.getByRole('dialog', { name: 'Level 2: SIMPLE VARIABLES' })).toBeVisible();
+  await page.getByRole('button', { name: 'Close' }).click();
   await page.getByRole('button', { name: /Level 1:/ }).click();
   await page.getByRole('button', { name: 'PLAY MATCH' }).click();
   await expect(page.getByRole('dialog', { name: 'How to play' })).toBeVisible();

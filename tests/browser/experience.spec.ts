@@ -200,16 +200,15 @@ test('round zoom and countdown finish before the ball drops, and kicks stay limi
   await expect(page.locator('.kick-button')).toHaveCount(0);
 });
 
-test('level progress unlocks only Levels 2 through 4 and the secondary radar stays hidden', async ({ page }) => {
+test('all four playable levels are open from the first visit and the secondary radar stays hidden', async ({ page }) => {
   await page.goto('/');
   await page.evaluate(() => {
     localStorage.setItem('output-league:tutorial', '1');
     localStorage.setItem('output-league:settings', JSON.stringify({ reducedMotion: true, sound: false }));
-    localStorage.setItem('output-league:progress', JSON.stringify({ bestScore: 900, stars: 2, complete: true }));
   });
   await page.goto('/python?qa=1');
-  await expect(page.getByRole('button', { name: /Level 2:/ })).toHaveAttribute('aria-disabled', 'false');
-  await expect(page.getByRole('button', { name: /Level 3:/ })).toHaveAttribute('aria-disabled', 'true');
+  for (const level of [1, 2, 3, 4]) await expect(page.getByRole('button', { name: new RegExp(`Level ${level}:`) })).toHaveAttribute('aria-disabled', 'false');
+  await expect(page.getByRole('button', { name: /Level 5:/ })).toHaveAttribute('aria-disabled', 'true');
   await page.evaluate(() => localStorage.setItem('output-league:level-progress', JSON.stringify({
     1: { bestScore: 900, stars: 2, complete: true },
     2: { bestScore: 1000, stars: 2, complete: true },
@@ -217,8 +216,6 @@ test('level progress unlocks only Levels 2 through 4 and the secondary radar sta
     4: { bestScore: 1200, stars: 3, complete: true },
   })));
   await page.reload();
-  await expect(page.getByRole('button', { name: /Level 4:/ })).toHaveAttribute('aria-disabled', 'false');
-  await expect(page.getByRole('button', { name: /Level 5:/ })).toHaveAttribute('aria-disabled', 'true');
   await page.getByRole('button', { name: /Level 4:/ }).click();
   await page.getByRole('button', { name: 'PLAY MATCH' }).click();
   await expect(page.locator('.code-panel-label').first()).toContainText('PYTHON · LEVEL 04');
