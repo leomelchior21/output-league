@@ -147,9 +147,15 @@ export async function saveStudentSettingsRemote(settings: object) {
 
 export async function saveStudentProgressRemote(language: Language, levelId: number, score: number, stars: number) {
   const session = getStudentSession();
-  if (!client || !session) return;
-  const { error } = await client.rpc('save_student_progress', { p_session_token: session.token, p_language: language, p_level_id: levelId, p_score: score, p_stars: stars });
-  if (error) console.warn('Could not sync student progress.', error.message);
+  if (!client || !session) return false;
+  try {
+    const { error } = await client.rpc('save_student_progress', { p_session_token: session.token, p_language: language, p_level_id: levelId, p_score: score, p_stars: stars });
+    if (error) { console.warn('Could not sync student progress.', error.message); return false; }
+    return true;
+  } catch (error) {
+    console.warn('Could not sync student progress.', error);
+    return false;
+  }
 }
 
 export async function getAllTimeLeaders(): Promise<Record<Language, LeaderboardEntry[]>> {

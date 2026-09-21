@@ -60,7 +60,7 @@ Steering magnitude controls speed. Kicks follow the rover's facing direction and
 - No time-based failure. Potential XP starts at 300, has a three-second grace period, decays by seven per second, and stops at 60. The first round gets eight seconds and slower decay. Each round allows three kicks; Orbit Mode removes the kick option.
 - Accuracy +40, clean shot +20, streak +15 per consecutive clean round (capped at +75), Orbit +40, mastery +100.
 - Stars weight accuracy 50%, score 35%, and clean shots 15%, with additional wrong-goal caps. Completion always earns at least one star.
-- Supabase stores each student’s level bests, stars, attempts, and garage/settings profile. Local storage acts as a responsive cache and keeps the game playable when the remote service is temporarily unavailable.
+- Supabase stores each student’s level bests, stars, attempts, and garage/settings profile. Local storage acts as a responsive cache and keeps the game playable when the remote service is temporarily unavailable. A completed level whose sync fails is queued locally and retried on the next login or reload.
 
 ## Implementation
 

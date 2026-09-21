@@ -1,7 +1,7 @@
 import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { ArrowLeft, ArrowRight, ChevronRight, Code2, LayoutDashboard, LockKeyhole, Play, Settings2, Star, Terminal, Trophy, UserRound } from 'lucide-react';
 import { isLanguage, languages, type Level, type Language } from './data/levels';
-import { clearStudentStorage, getProgress, getSettings, hydrateStudentStorage, saveSettings, type Settings as SettingsValue } from './data/storage';
+import { clearStudentStorage, flushPendingProgress, getProgress, getSettings, hydrateStudentStorage, saveSettings, type Settings as SettingsValue } from './data/storage';
 import { getStudentSession, isSupabaseConfigured, loginStudent, logoutStudent, refreshStudentState, type StudentSession } from './data/supabase';
 import { LanguageIcon } from './components/Icons';
 import Island from './components/Island';
@@ -86,11 +86,13 @@ export default function App() {
   useEffect(() => {
     if (!student || !isSupabaseConfigured) return;
     let active = true;
-    void refreshStudentState().then(state => {
-      if (!active || !state) return;
-      hydrateStudentStorage(state.settings as Partial<SettingsValue> | null, state.progress);
-      setStudent(state.session); setSettings(getSettings()); setProgressRevision(value => value + 1);
-    });
+    void flushPendingProgress()
+      .then(() => refreshStudentState())
+      .then(state => {
+        if (!active || !state) return;
+        hydrateStudentStorage(state.settings as Partial<SettingsValue> | null, state.progress);
+        setStudent(state.session); setSettings(getSettings()); setProgressRevision(value => value + 1);
+      });
     return () => { active = false; };
   }, [student?.token]);
 
